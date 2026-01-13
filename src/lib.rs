@@ -87,7 +87,7 @@ pub use compression::CompressionMethod;
 pub use error::{PakError, Result};
 pub use package::{
     get_package_flags, get_package_priority, Package, PackageBuilder, PackageBuilderOptions,
-    PackagedFile, PackageFileEntry, PackageFlags, PackageHeader, PackageMetadata, PackageVersion,
+    PackageFileEntry, PackageFlags, PackageHeader, PackageMetadata, PackageVersion, PackagedFile,
 };
 pub use search::{FileFilter, PackageSearch};
 

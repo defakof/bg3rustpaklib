@@ -7,7 +7,7 @@
 
 use crate::compression::CompressionMethod;
 use crate::error::Result;
-use crate::package::{Package, PackagedFile, PackageMetadata};
+use crate::package::{Package, PackageMetadata, PackagedFile};
 use crate::search::PackageSearch;
 use regex::Regex;
 use std::path::Path;
@@ -137,10 +137,13 @@ impl AsyncPackage {
     /// Extracts files by name to the given directory.
     ///
     /// Pass a list of file names to extract.
-    pub async fn extract_files<P: AsRef<Path>>(&self, output_dir: P, names: &[String]) -> Result<()> {
+    pub async fn extract_files<P: AsRef<Path>>(
+        &self,
+        output_dir: P,
+        names: &[String],
+    ) -> Result<()> {
         let output_dir = output_dir.as_ref().to_path_buf();
-        let names_set: std::collections::HashSet<&str> =
-            names.iter().map(|s| s.as_str()).collect();
+        let names_set: std::collections::HashSet<&str> = names.iter().map(|s| s.as_str()).collect();
         let guard = self.inner.read().await;
         guard.extract_filtered(&output_dir, |f| names_set.contains(f.name()))
     }

@@ -105,13 +105,17 @@ mod tests {
         assert_eq!(CompressionMethod::from_flags(0x01), CompressionMethod::Zlib);
         assert_eq!(CompressionMethod::from_flags(0x02), CompressionMethod::Lz4);
         assert_eq!(CompressionMethod::from_flags(0x03), CompressionMethod::Zstd);
-        assert_eq!(CompressionMethod::from_flags(0x22), CompressionMethod::Lz4); // With level flags
+        assert_eq!(CompressionMethod::from_flags(0x22), CompressionMethod::Lz4);
+        // With level flags
     }
 
     #[test]
     fn test_compression_level_from_flags() {
         assert_eq!(CompressionLevel::from_flags(0x12), CompressionLevel::Fast);
-        assert_eq!(CompressionLevel::from_flags(0x22), CompressionLevel::Default);
+        assert_eq!(
+            CompressionLevel::from_flags(0x22),
+            CompressionLevel::Default
+        );
         assert_eq!(CompressionLevel::from_flags(0x42), CompressionLevel::Max);
     }
 }

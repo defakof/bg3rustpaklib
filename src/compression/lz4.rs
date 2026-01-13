@@ -80,10 +80,10 @@ fn decompress_lz4_chunked(compressed: &[u8], uncompressed_size: usize) -> Result
         let remaining = uncompressed_size - decompressed.len();
         let chunk_uncompressed_size = remaining.min(LZ4_CHUNK_SIZE);
 
-        let chunk_decompressed =
-            lz4_flex::block::decompress(chunk_data, chunk_uncompressed_size).map_err(|e| {
-                PakError::Decompression(format!("LZ4 chunk decompression failed: {}", e))
-            })?;
+        let chunk_decompressed = lz4_flex::block::decompress(chunk_data, chunk_uncompressed_size)
+            .map_err(|e| {
+            PakError::Decompression(format!("LZ4 chunk decompression failed: {}", e))
+        })?;
 
         decompressed.extend_from_slice(&chunk_decompressed);
     }
@@ -151,9 +151,9 @@ fn decompress_lz4_frame_standard(compressed: &[u8]) -> Result<Vec<u8>> {
     let mut decoder = lz4_flex::frame::FrameDecoder::new(compressed);
     let mut decompressed = Vec::new();
 
-    decoder.read_to_end(&mut decompressed).map_err(|e| {
-        PakError::Decompression(format!("LZ4 frame decompression failed: {}", e))
-    })?;
+    decoder
+        .read_to_end(&mut decompressed)
+        .map_err(|e| PakError::Decompression(format!("LZ4 frame decompression failed: {}", e)))?;
 
     Ok(decompressed)
 }

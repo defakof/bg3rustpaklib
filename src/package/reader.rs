@@ -431,11 +431,10 @@ impl Package {
             })?;
         }
 
-        let mut output_file =
-            File::create(output_path).map_err(|e| PakError::OutputCreation {
-                path: output_path.to_path_buf(),
-                source: e,
-            })?;
+        let mut output_file = File::create(output_path).map_err(|e| PakError::OutputCreation {
+            path: output_path.to_path_buf(),
+            source: e,
+        })?;
 
         self.extract_file(file, &mut output_file)
     }

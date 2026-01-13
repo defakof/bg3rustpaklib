@@ -4,7 +4,7 @@ use std::io::Read;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() < 2 {
         println!("Usage: dump_header <pak>");
         return;
@@ -14,9 +14,9 @@ fn main() {
         println!("\n=== {} ===", path);
         let mut file = File::open(path).unwrap();
         let file_len = file.metadata().unwrap().len();
-        
+
         println!("File size: {} bytes", file_len);
-        
+
         let mut start = [0u8; 64];
         file.read_exact(&mut start).unwrap();
         println!("\nFirst 64 bytes:");

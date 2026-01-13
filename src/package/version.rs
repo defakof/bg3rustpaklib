@@ -49,10 +49,7 @@ impl PackageVersion {
     pub fn has_crc(self) -> bool {
         matches!(
             self,
-            PackageVersion::V10
-                | PackageVersion::V13
-                | PackageVersion::V15
-                | PackageVersion::V16
+            PackageVersion::V10 | PackageVersion::V13 | PackageVersion::V15 | PackageVersion::V16
         )
     }
 

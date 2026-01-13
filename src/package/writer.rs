@@ -8,6 +8,9 @@ use std::fs::File;
 use std::io::{BufWriter, Read, Seek, Write};
 use std::path::Path;
 
+/// Reads the priority value from an existing PAK file header.
+///
+/// Returns 0 if the file is not a valid PAK file.
 pub fn get_package_priority(path: &Path) -> Result<u8> {
     let mut file = File::open(path)?;
     let mut header = [0u8; 40];
@@ -21,6 +24,9 @@ pub fn get_package_priority(path: &Path) -> Result<u8> {
     Ok(header[21])
 }
 
+/// Reads the flags value from an existing PAK file header.
+///
+/// Returns 0 if the file is not a valid PAK file.
 pub fn get_package_flags(path: &Path) -> Result<u8> {
     let mut file = File::open(path)?;
     let mut header = [0u8; 40];
@@ -34,12 +40,18 @@ pub fn get_package_flags(path: &Path) -> Result<u8> {
     Ok(header[20])
 }
 
+/// Options for building a PAK package.
 #[derive(Debug, Clone)]
 pub struct PackageBuilderOptions {
+    /// Package format version.
     pub version: PackageVersion,
+    /// Compression method for files.
     pub compression: CompressionMethod,
+    /// Package priority.
     pub priority: u8,
+    /// Package flags.
     pub flags: PackageFlags,
+    /// Whether to compute MD5 hash.
     pub compute_hash: bool,
 }
 
@@ -55,9 +67,12 @@ impl Default for PackageBuilderOptions {
     }
 }
 
+/// A file entry to be added to a package.
 #[derive(Debug, Clone)]
 pub struct PackageFileEntry {
+    /// Path within the archive.
     pub archive_path: String,
+    /// Path to the source file on disk.
     pub source_path: std::path::PathBuf,
 }
 
@@ -70,12 +85,26 @@ struct WrittenFileEntry {
     archive_part: u32,
 }
 
+/// Builder for creating new PAK packages.
+///
+/// # Example
+///
+/// ```
+/// use bg3rustpaklib::{PackageBuilder, PackageVersion};
+///
+/// let builder = PackageBuilder::new()
+///     .version(PackageVersion::V18)
+///     .add_file("data/example.lsf", "Public/Game/example.lsf")?
+///     .add_directory("assets")?
+///     .build("output.pak");
+/// ```
 pub struct PackageBuilder {
     options: PackageBuilderOptions,
     files: Vec<PackageFileEntry>,
 }
 
 impl PackageBuilder {
+    /// Creates a new package builder with default options.
     pub fn new() -> Self {
         PackageBuilder {
             options: PackageBuilderOptions::default(),
@@ -83,31 +112,59 @@ impl PackageBuilder {
         }
     }
 
+    /// Creates a package builder with custom options.
     pub fn with_options(options: PackageBuilderOptions) -> Self {
-        PackageBuilder { options, files: Vec::new() }
+        PackageBuilder {
+            options,
+            files: Vec::new(),
+        }
     }
 
+    /// Sets the package format version.
+    ///
+    /// Defaults to [`PackageVersion::V18`](crate::package::PackageVersion::V18).
     pub fn version(mut self, version: PackageVersion) -> Self {
         self.options.version = version;
         self
     }
 
+    /// Sets the compression method for files in the package.
+    ///
+    /// Defaults to [`CompressionMethod::Lz4`](crate::CompressionMethod::Lz4).
     pub fn compression(mut self, compression: CompressionMethod) -> Self {
         self.options.compression = compression;
         self
     }
 
+    /// Sets the package priority.
+    ///
+    /// Higher priority packages are loaded first and can override files
+    /// from lower priority packages.
     pub fn priority(mut self, priority: u8) -> Self {
         self.options.priority = priority;
         self
     }
 
+    /// Enables or disables MD5 hash computation for the archive.
+    ///
+    /// When enabled, computes an MD5 hash of all file contents for
+    /// integrity verification.
     pub fn compute_hash(mut self, compute: bool) -> Self {
         self.options.compute_hash = compute;
         self
     }
 
-    pub fn add_file<P: AsRef<Path>, S: Into<String>>(mut self, source_path: P, archive_path: S) -> Self {
+    /// Adds a single file to the package.
+    ///
+    /// # Arguments
+    ///
+    /// * `source_path` - Path to the file on disk to read data from
+    /// * `archive_path` - Path for this file within the PAK archive
+    pub fn add_file<P: AsRef<Path>, S: Into<String>>(
+        mut self,
+        source_path: P,
+        archive_path: S,
+    ) -> Self {
         self.files.push(PackageFileEntry {
             source_path: source_path.as_ref().to_path_buf(),
             archive_path: normalize_path(archive_path.into()),
@@ -115,6 +172,13 @@ impl PackageBuilder {
         self
     }
 
+    /// Recursively adds all files from a directory to the package.
+    ///
+    /// Maintains the directory structure relative to `dir_path`.
+    ///
+    /// # Arguments
+    ///
+    /// * `dir_path` - Path to the directory to add
     pub fn add_directory<P: AsRef<Path>>(mut self, dir_path: P) -> Result<Self> {
         let dir_path = dir_path.as_ref();
         self.add_directory_recursive(dir_path, dir_path)?;
@@ -129,7 +193,8 @@ impl PackageBuilder {
             if path.is_dir() {
                 self.add_directory_recursive(base_path, &path)?;
             } else if path.is_file() {
-                let relative = path.strip_prefix(base_path)
+                let relative = path
+                    .strip_prefix(base_path)
                     .map_err(|_| PakError::InvalidFileEntry("invalid path".to_string()))?;
                 let archive_path = normalize_path(relative.to_string_lossy().to_string());
                 self.files.push(PackageFileEntry {
@@ -141,6 +206,15 @@ impl PackageBuilder {
         Ok(())
     }
 
+    /// Builds the package and writes it to the specified output path.
+    ///
+    /// # Arguments
+    ///
+    /// * `output_path` - Path where the PAK file will be written
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file I/O fails or the package cannot be written.
     pub fn build<P: AsRef<Path>>(self, output_path: P) -> Result<()> {
         let output_path = output_path.as_ref();
         let file = File::create(output_path).map_err(|e| PakError::OutputCreation {

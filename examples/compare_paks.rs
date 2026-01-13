@@ -3,7 +3,7 @@ use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() < 2 {
         println!("Usage: compare_paks <pak1> [pak2]");
         return;
@@ -21,11 +21,17 @@ fn main() {
                 println!("Priority: {}", meta.priority);
                 println!("Is solid: {}", meta.is_solid);
                 println!("MD5: {:02x?}", meta.md5);
-                
+
                 println!("\nFirst 5 files:");
                 for (i, file) in pkg.files().iter().take(5).enumerate() {
-                    println!("  {}: {} (size: {}, compressed: {}, method: {:?})", 
-                        i, file.name(), file.size(), file.compressed_size(), file.compression_method());
+                    println!(
+                        "  {}: {} (size: {}, compressed: {}, method: {:?})",
+                        i,
+                        file.name(),
+                        file.size(),
+                        file.compressed_size(),
+                        file.compression_method()
+                    );
                 }
             }
             Err(e) => {

@@ -100,17 +100,16 @@ impl PackageSearch for Package {
 
         self.files()
             .iter()
-            .filter(|file| {
-                file.name()
-                    .to_lowercase()
-                    .ends_with(&with_dot)
-            })
+            .filter(|file| file.name().to_lowercase().ends_with(&with_dot))
             .collect()
     }
 
     fn find_in_directory(&self, directory: &str) -> Vec<&PackagedFile> {
         // Normalize directory path
-        let dir = directory.replace('\\', "/").trim_end_matches('/').to_string();
+        let dir = directory
+            .replace('\\', "/")
+            .trim_end_matches('/')
+            .to_string();
         let prefix = format!("{}/", dir);
 
         self.files()
@@ -158,7 +157,8 @@ impl FileFilter {
 
     /// Adds a directory to match.
     pub fn directory(mut self, dir: &str) -> Self {
-        self.directories.push(dir.replace('\\', "/").trim_end_matches('/').to_string());
+        self.directories
+            .push(dir.replace('\\', "/").trim_end_matches('/').to_string());
         self
     }
 
@@ -269,9 +269,7 @@ mod tests {
 
     #[test]
     fn test_file_filter_exclude() {
-        let filter = FileFilter::new()
-            .extension("lsf")
-            .exclude("**/test_*");
+        let filter = FileFilter::new().extension("lsf").exclude("**/test_*");
 
         let file1 = make_test_file("Public/Game/data.lsf");
         let file2 = make_test_file("Public/Game/test_data.lsf");
