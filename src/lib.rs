@@ -76,6 +76,7 @@
 
 mod compression;
 mod error;
+pub mod loca;
 mod package;
 mod search;
 
