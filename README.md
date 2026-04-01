@@ -6,6 +6,8 @@ A Rust library for reading, extracting, and creating Baldur's Gate 3 PAK files.
 
 This library provides functionality for working with Larian Studios' PAK (LSPK) archive format used in Baldur's Gate 3. It is similar to [lslib](https://github.com/Norbyte/lslib) but written in Rust.
 
+![bg3rustpaklib vs lslib](./lslib-comparison.svg)
+
 ## Features
 
 - **Read PAK files** - Supports versions 15, 16, and 18 (BG3 format)
