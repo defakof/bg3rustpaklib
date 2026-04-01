@@ -40,6 +40,11 @@ regex = ["dep:regex"]
 tempfile = "3"
 regex = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "pak_bench"
+harness = false
 
 [profile.release]
 opt-level = 3

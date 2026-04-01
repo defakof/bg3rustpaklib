@@ -10,6 +10,18 @@ target/*/*.exp
 target/*/*.ilk
 target/*/*.pdb
 
+.appdata/
+.dotnet_home/
+.nuget/
+tools/**/bin/
+tools/**/obj/
+
+tools/lslib_probe/
+tools/lslib_bench/bin/
+tools/lslib_bench/obj/
+
+
+
 # RustRover
 .idea/
 
