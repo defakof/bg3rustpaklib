@@ -1,0 +1,143 @@
+<svg width="800" height="402" viewBox="0 0 800 402" fill="none" xmlns="http://www.w3.org/2000/svg">
+<style>
+text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+.mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; }
+.bg  { fill: #0d1117; }
+.sf  { fill: #161b22; }
+.bd  { stroke: #30363d; }
+.tp  { fill: #e6edf3; }
+.ts  { fill: #8b949e; }
+.th  { fill: #6e7681; }
+.dv  { stroke: #21262d; }
+@media (prefers-color-scheme: light) {
+  .bg  { fill: #ffffff; }
+  .sf  { fill: #f6f8fa; }
+  .bd  { stroke: #d0d7de; }
+  .tp  { fill: #24292f; }
+  .ts  { fill: #57606a; }
+  .th  { fill: #8c959f; }
+  .dv  { stroke: #eaeef2; }
+}
+</style>
+
+<rect width="800" height="402" class="bg"/>
+
+<text x="16" y="13" font-size="11" font-weight="500" class="th">commit-over-commit and lslib comparison</text>
+
+<rect x="12" y="20" width="186" height="80" rx="6" class="sf"/>
+<rect x="12" y="20" width="186" height="80" rx="6" class="bd" stroke-width="0.75"/>
+<rect x="12" y="20" width="3" height="80" rx="1.5" fill="#fbbf24"/>
+<text x="27" y="53" font-size="26" font-weight="700" fill="#fbbf24" class="mono">3.6×</text>
+<text x="27" y="70" font-size="12" class="ts">old → latest commit</text>
+<text x="27" y="85" font-size="11" class="th">geometric mean · 10 ops</text>
+
+<rect x="208" y="20" width="186" height="80" rx="6" class="sf"/>
+<rect x="208" y="20" width="186" height="80" rx="6" class="bd" stroke-width="0.75"/>
+<rect x="208" y="20" width="3" height="80" rx="1.5" fill="#34d399"/>
+<text x="223" y="53" font-size="26" font-weight="700" fill="#34d399" class="mono">8.7×</text>
+<text x="223" y="70" font-size="12" class="ts">latest commit vs LSLib</text>
+<text x="223" y="85" font-size="11" class="th">geometric mean · 10 ops</text>
+
+<rect x="404" y="20" width="186" height="80" rx="6" class="sf"/>
+<rect x="404" y="20" width="186" height="80" rx="6" class="bd" stroke-width="0.75"/>
+<rect x="404" y="20" width="3" height="80" rx="1.5" fill="#38bdf8"/>
+<text x="419" y="53" font-size="26" font-weight="700" fill="#38bdf8" class="mono">9 / 10</text>
+<text x="419" y="70" font-size="12" class="ts">latest commit wins</text>
+<text x="419" y="85" font-size="11" class="th">LSLib wins only `find/**/*.xml`</text>
+
+<rect x="600" y="20" width="188" height="80" rx="6" class="sf"/>
+<rect x="600" y="20" width="188" height="80" rx="6" class="bd" stroke-width="0.75"/>
+<rect x="600" y="20" width="3" height="80" rx="1.5" fill="#a78bfa"/>
+<text x="615" y="53" font-size="26" font-weight="700" fill="#a78bfa" class="mono">526×</text>
+<text x="615" y="70" font-size="12" class="ts">best single win</text>
+<text x="615" y="85" font-size="11" class="th">`get/acheron_last_file`</text>
+
+<rect x="0" y="110" width="800" height="26" class="sf"/>
+<line x1="0" y1="136" x2="800" y2="136" class="bd" stroke-width="0.75"/>
+<text x="16" y="127" font-size="10" font-weight="600" class="th">BENCHMARK</text>
+<text x="470" y="127" font-size="10" font-weight="600" class="th" text-anchor="end">LATEST</text>
+<text x="575" y="127" font-size="10" font-weight="600" class="th" text-anchor="end">LSLIB</text>
+<text x="635" y="127" font-size="10" font-weight="600" class="th" text-anchor="middle">WINNER</text>
+
+<line x1="0" y1="162" x2="800" y2="162" class="dv" stroke-width="0.5"/>
+<text x="16" y="151" font-size="12" class="tp mono">get/acheron_last_file</text>
+<text x="470" y="151" font-size="12" class="ts mono" text-anchor="end">76 ns</text>
+<text x="575" y="151" font-size="12" class="ts mono" text-anchor="end">40 µs</text>
+<rect x="601" y="140" width="78" height="16" rx="8" fill="#34d399" fill-opacity="0.12"/>
+<rect x="601" y="140" width="78" height="16" rx="8" stroke="#34d399" stroke-width="0.5" stroke-opacity="0.4"/>
+<text x="640" y="151" font-size="11" font-weight="600" fill="#34d399" class="mono" text-anchor="middle">Rust 526×</text>
+
+<line x1="0" y1="184" x2="800" y2="184" class="bd" stroke-width="0.75"/>
+<text x="16" y="173" font-size="12" class="tp mono">get/acheron_100×</text>
+<text x="470" y="173" font-size="12" class="ts mono" text-anchor="end">7.5 µs</text>
+<text x="575" y="173" font-size="12" class="ts mono" text-anchor="end">2.186 ms</text>
+<rect x="601" y="162" width="78" height="16" rx="8" fill="#f87171" fill-opacity="0.12"/>
+<rect x="601" y="162" width="78" height="16" rx="8" stroke="#f87171" stroke-width="0.5" stroke-opacity="0.4"/>
+<text x="640" y="173" font-size="11" font-weight="600" fill="#34d399" class="mono" text-anchor="middle">Rust 291×</text>
+
+<line x1="0" y1="212" x2="800" y2="212" class="dv" stroke-width="0.5"/>
+<text x="16" y="201" font-size="12" class="tp mono">extract_all/romance (135 files)</text>
+<text x="470" y="201" font-size="12" class="ts mono" text-anchor="end">95.8 ms</text>
+<text x="575" y="201" font-size="12" class="ts mono" text-anchor="end">129.170 ms</text>
+<rect x="601" y="190" width="78" height="16" rx="8" fill="#34d399" fill-opacity="0.12"/>
+<rect x="601" y="190" width="78" height="16" rx="8" stroke="#34d399" stroke-width="0.5" stroke-opacity="0.4"/>
+<text x="640" y="201" font-size="11" font-weight="600" fill="#34d399" class="mono" text-anchor="middle">Rust 1.35×</text>
+
+<line x1="0" y1="234" x2="800" y2="234" class="bd" stroke-width="0.75"/>
+<text x="16" y="223" font-size="12" class="tp mono">extract_all/acheron (739 files)</text>
+<text x="470" y="223" font-size="12" class="ts mono" text-anchor="end">445.9 ms</text>
+<text x="575" y="223" font-size="12" class="ts mono" text-anchor="end">744.240 ms</text>
+<rect x="601" y="212" width="78" height="16" rx="8" fill="#34d399" fill-opacity="0.12"/>
+<rect x="601" y="212" width="78" height="16" rx="8" stroke="#34d399" stroke-width="0.5" stroke-opacity="0.4"/>
+<text x="640" y="223" font-size="11" font-weight="600" fill="#34d399" class="mono" text-anchor="middle">Rust 1.67×</text>
+
+<line x1="0" y1="262" x2="800" y2="262" class="dv" stroke-width="0.5"/>
+<text x="16" y="251" font-size="12" class="tp mono">find /**/*.GR2</text>
+<text x="470" y="251" font-size="12" class="ts mono" text-anchor="end">240 µs</text>
+<text x="575" y="251" font-size="12" class="ts mono" text-anchor="end">343 µs</text>
+<rect x="601" y="240" width="78" height="16" rx="8" fill="#34d399" fill-opacity="0.12"/>
+<rect x="601" y="240" width="78" height="16" rx="8" stroke="#34d399" stroke-width="0.5" stroke-opacity="0.4"/>
+<text x="640" y="251" font-size="11" font-weight="600" fill="#34d399" class="mono" text-anchor="middle">Rust 1.43×</text>
+
+<line x1="0" y1="284" x2="800" y2="284" class="bd" stroke-width="0.75"/>
+<text x="16" y="273" font-size="12" class="tp mono">find /**/*.xml</text>
+<text x="470" y="273" font-size="12" class="ts mono" text-anchor="end">302 µs</text>
+<text x="575" y="273" font-size="12" class="ts mono" text-anchor="end">254 µs</text>
+<rect x="601" y="262" width="78" height="16" rx="8" fill="#f87171" fill-opacity="0.12"/>
+<rect x="601" y="262" width="78" height="16" rx="8" stroke="#f87171" stroke-width="0.5" stroke-opacity="0.4"/>
+<text x="640" y="273" font-size="11" font-weight="600" fill="#f87171" class="mono" text-anchor="middle">LSLib 1.19×</text>
+
+<line x1="0" y1="312" x2="800" y2="312" class="dv" stroke-width="0.5"/>
+<text x="16" y="301" font-size="12" class="tp mono">read_file/logo.png (7 MB)</text>
+<text x="470" y="301" font-size="12" class="ts mono" text-anchor="end">1.36 ms</text>
+<text x="575" y="301" font-size="12" class="ts mono" text-anchor="end">10.287 ms</text>
+<rect x="601" y="290" width="78" height="16" rx="8" fill="#34d399" fill-opacity="0.12"/>
+<rect x="601" y="290" width="78" height="16" rx="8" stroke="#34d399" stroke-width="0.5" stroke-opacity="0.4"/>
+<text x="640" y="301" font-size="11" font-weight="600" fill="#34d399" class="mono" text-anchor="middle">Rust 7.56×</text>
+
+<line x1="0" y1="334" x2="800" y2="334" class="bd" stroke-width="0.75"/>
+<text x="16" y="323" font-size="12" class="tp mono">read_file/meta.lsx (5 KB)</text>
+<text x="470" y="323" font-size="12" class="ts mono" text-anchor="end">1.11 µs</text>
+<text x="575" y="323" font-size="12" class="ts mono" text-anchor="end">36 µs</text>
+<rect x="601" y="312" width="78" height="16" rx="8" fill="#34d399" fill-opacity="0.12"/>
+<rect x="601" y="312" width="78" height="16" rx="8" stroke="#34d399" stroke-width="0.5" stroke-opacity="0.4"/>
+<text x="640" y="323" font-size="11" font-weight="600" fill="#34d399" class="mono" text-anchor="middle">Rust 32.4×</text>
+
+<line x1="0" y1="362" x2="800" y2="362" class="dv" stroke-width="0.5"/>
+<text x="16" y="351" font-size="12" class="tp mono">open/romance (135 files)</text>
+<text x="470" y="351" font-size="12" class="ts mono" text-anchor="end">153 µs</text>
+<text x="575" y="351" font-size="12" class="ts mono" text-anchor="end">1.283 ms</text>
+<rect x="601" y="340" width="78" height="16" rx="8" fill="#34d399" fill-opacity="0.12"/>
+<rect x="601" y="340" width="78" height="16" rx="8" stroke="#34d399" stroke-width="0.5" stroke-opacity="0.4"/>
+<text x="640" y="351" font-size="11" font-weight="600" fill="#34d399" class="mono" text-anchor="middle">Rust 8.39×</text>
+
+<text x="16" y="373" font-size="12" class="tp mono">open/acheron (739 files)</text>
+<text x="470" y="373" font-size="12" class="ts mono" text-anchor="end">336 µs</text>
+<text x="575" y="373" font-size="12" class="ts mono" text-anchor="end">1.020 ms</text>
+<rect x="601" y="362" width="78" height="16" rx="8" fill="#34d399" fill-opacity="0.12"/>
+<rect x="601" y="362" width="78" height="16" rx="8" stroke="#34d399" stroke-width="0.5" stroke-opacity="0.4"/>
+<text x="640" y="373" font-size="11" font-weight="600" fill="#34d399" class="mono" text-anchor="middle">Rust 3.04×</text>
+
+<text x="784" y="395" font-size="10" fill="#6e7681" text-anchor="end">old → latest = 3.6× overall; latest → LSLib = 8.7× overall</text>
+
+</svg>
