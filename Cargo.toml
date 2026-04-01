@@ -9,6 +9,9 @@ repository = "https://github.com/defakof/bg3rustpaklib"
 keywords = ["baldurs-gate-3", "bg3", "pak", "lspk", "modding"]
 categories = ["parsing", "game-development"]
 
+[package.metadata.docs.rs]
+features = ["async", "regex"]
+
 [dependencies]
 thiserror = "2"
 memmap2 = "0.9"
@@ -36,6 +39,7 @@ regex = ["dep:regex"]
 [dev-dependencies]
 tempfile = "3"
 regex = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [profile.release]
 opt-level = 3

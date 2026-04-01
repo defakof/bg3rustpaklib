@@ -59,13 +59,13 @@
 //! bg3rustpaklib = { version = "0.1", features = ["async"] }
 //! ```
 //!
-//! ```ignore
+//! ```no_run
 //! use bg3rustpaklib::AsyncPackage;
 //!
 //! #[tokio::main]
 //! async fn main() -> bg3rustpaklib::Result<()> {
 //!     let package = AsyncPackage::open("Game.pak").await?;
-//!     let metadata = package.metadata();
+//!     let metadata = package.metadata().await;
 //!     println!("File count: {}", metadata.file_count);
 //!     Ok(())
 //! }
