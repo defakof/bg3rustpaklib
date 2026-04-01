@@ -8,6 +8,7 @@ pub use self::zstd::decompress_zstd;
 
 use crate::error::{PakError, Result};
 use flate2::read::ZlibDecoder;
+use std::fmt;
 use std::io::Read;
 
 /// Compression methods used in PAK files.
@@ -21,6 +22,8 @@ pub enum CompressionMethod {
     Lz4,
     /// Zstandard compression.
     Zstd,
+    /// Unknown compression method (raw ID preserved for error reporting).
+    Unknown(u8),
 }
 
 impl CompressionMethod {
@@ -31,7 +34,7 @@ impl CompressionMethod {
             1 => CompressionMethod::Zlib,
             2 => CompressionMethod::Lz4,
             3 => CompressionMethod::Zstd,
-            _ => CompressionMethod::None, // Unknown methods treated as uncompressed
+            other => CompressionMethod::Unknown(other),
         }
     }
 
@@ -42,6 +45,19 @@ impl CompressionMethod {
             CompressionMethod::Zlib => 1,
             CompressionMethod::Lz4 => 2,
             CompressionMethod::Zstd => 3,
+            CompressionMethod::Unknown(n) => n,
+        }
+    }
+}
+
+impl fmt::Display for CompressionMethod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CompressionMethod::None => write!(f, "None"),
+            CompressionMethod::Zlib => write!(f, "Zlib"),
+            CompressionMethod::Lz4 => write!(f, "LZ4"),
+            CompressionMethod::Zstd => write!(f, "Zstd"),
+            CompressionMethod::Unknown(n) => write!(f, "Unknown({})", n),
         }
     }
 }
@@ -79,16 +95,17 @@ pub fn decompress(
 ) -> Result<Vec<u8>> {
     match method {
         CompressionMethod::None => Ok(compressed.to_vec()),
-        CompressionMethod::Zlib => decompress_zlib(compressed),
+        CompressionMethod::Zlib => decompress_zlib(compressed, uncompressed_size),
         CompressionMethod::Lz4 => decompress_lz4(compressed, uncompressed_size),
         CompressionMethod::Zstd => decompress_zstd(compressed),
+        CompressionMethod::Unknown(id) => Err(PakError::UnsupportedCompression(id)),
     }
 }
 
 /// Decompresses Zlib-compressed data.
-fn decompress_zlib(compressed: &[u8]) -> Result<Vec<u8>> {
+fn decompress_zlib(compressed: &[u8], uncompressed_size: usize) -> Result<Vec<u8>> {
     let mut decoder = ZlibDecoder::new(compressed);
-    let mut decompressed = Vec::new();
+    let mut decompressed = Vec::with_capacity(uncompressed_size);
     decoder
         .read_to_end(&mut decompressed)
         .map_err(|e| PakError::Decompression(format!("Zlib decompression failed: {}", e)))?;
@@ -106,7 +123,20 @@ mod tests {
         assert_eq!(CompressionMethod::from_flags(0x02), CompressionMethod::Lz4);
         assert_eq!(CompressionMethod::from_flags(0x03), CompressionMethod::Zstd);
         assert_eq!(CompressionMethod::from_flags(0x22), CompressionMethod::Lz4);
-        // With level flags
+        assert_eq!(
+            CompressionMethod::from_flags(0x04),
+            CompressionMethod::Unknown(4)
+        );
+    }
+
+    #[test]
+    fn test_compression_method_unknown_returns_error() {
+        let result = decompress(&[1, 2, 3], 10, CompressionMethod::Unknown(5));
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            PakError::UnsupportedCompression(5) => {}
+            e => panic!("unexpected error: {:?}", e),
+        }
     }
 
     #[test]

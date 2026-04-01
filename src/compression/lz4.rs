@@ -102,7 +102,13 @@ fn decompress_lz4_chunked(compressed: &[u8], uncompressed_size: usize) -> Result
 
 /// Tries to decompress as a single LZ4 block (fallback for non-chunked data).
 fn decompress_lz4_single_block(compressed: &[u8], uncompressed_size: usize) -> Result<Vec<u8>> {
-    let buffer_size = uncompressed_size + 64;
+    // BUG-13 FIX: use checked_add to prevent overflow
+    let buffer_size = uncompressed_size.checked_add(64).ok_or_else(|| {
+        PakError::Decompression(format!(
+            "LZ4 buffer size overflow: {} + 64",
+            uncompressed_size
+        ))
+    })?;
     let mut decompressed = vec![0u8; buffer_size];
 
     match lz4_flex::block::decompress_into(compressed, &mut decompressed) {
@@ -146,8 +152,6 @@ pub fn decompress_lz4_frame(compressed: &[u8]) -> Result<Vec<u8>> {
 
 /// Decompresses standard LZ4 frame format.
 fn decompress_lz4_frame_standard(compressed: &[u8]) -> Result<Vec<u8>> {
-    use std::io::Read;
-
     let mut decoder = lz4_flex::frame::FrameDecoder::new(compressed);
     let mut decompressed = Vec::new();
 
@@ -239,5 +243,40 @@ mod tests {
 
         let decompressed = decompress_lz4(&compressed, original.len()).unwrap();
         assert_eq!(decompressed, original);
+    }
+
+    #[test]
+    fn test_decompress_lz4_corrupted() {
+        let result = decompress_lz4(&[0xFF, 0xFE, 0xFD, 0xFC, 0xFB], 100);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_decompress_lz4_zero_uncompressed() {
+        let result = decompress_lz4(&[1, 2, 3, 4], 0);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_decompress_lz4_frame_too_short() {
+        let result = decompress_lz4_frame(&[1, 2]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_lz4_roundtrip() {
+        let original = b"The quick brown fox jumps over the lazy dog. Repeated: AAAAAAAAAA";
+        let compressed = compress_lz4_single(original);
+        assert!(!compressed.is_empty());
+
+        let decompressed = decompress_lz4(&compressed, original.len()).unwrap();
+        assert_eq!(decompressed, original);
+    }
+
+    #[test]
+    fn test_compress_empty() {
+        let compressed = compress_lz4_single(&[]);
+        assert!(compressed.is_empty());
     }
 }

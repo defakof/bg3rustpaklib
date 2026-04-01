@@ -5,12 +5,19 @@ use crate::error::{PakError, Result};
 use crate::package::file_entry::FileEntry;
 use crate::package::header::PackageHeader;
 use crate::package::version::PackageVersion;
-use byteorder::{LittleEndian, ReadBytesExt};
 use memmap2::Mmap;
+use rayon::prelude::*;
+use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Cursor, Write};
+use std::io::{BufReader, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+fn read_u32_le<R: Read>(r: &mut R) -> std::io::Result<u32> {
+    let mut b = [0u8; 4];
+    r.read_exact(&mut b)?;
+    Ok(u32::from_le_bytes(b))
+}
 
 /// A memory-mapped archive part.
 struct ArchivePart {
@@ -127,6 +134,8 @@ pub struct Package {
     files: Vec<PackagedFile>,
     /// Decompressed solid archive data (if applicable).
     solid_data: Option<Arc<Vec<u8>>>,
+    /// HashMap index for O(1) file lookups by normalized path.
+    index: HashMap<String, usize>,
 }
 
 impl Package {
@@ -155,12 +164,10 @@ impl Package {
         let file_entries = Self::read_file_list(&parts[0], &header)?;
 
         // Calculate data offset for legacy packages
-        // For V13+ packages with compressed file lists, offsets in file entries are absolute
-        // For V10 and earlier, offsets are relative to the data section
+        // V13+ packages have absolute offsets in file entries
         let legacy_data_offset = if header.version <= PackageVersion::V10 {
             header.data_offset as u64
         } else {
-            // V13+ packages have absolute offsets in file entries
             0
         };
 
@@ -179,12 +186,20 @@ impl Package {
             })
             .collect();
 
+        // Build O(1) name → index lookup
+        let index: HashMap<String, usize> = files
+            .iter()
+            .enumerate()
+            .map(|(i, f)| (f.entry.name.replace('\\', "/"), i))
+            .collect();
+
         let mut package = Package {
             header,
             path,
             parts,
             files,
             solid_data: None,
+            index,
         };
 
         // If this is a solid archive, decompress the data upfront
@@ -212,11 +227,11 @@ impl Package {
             let mut cursor = Cursor::new(&data[offset..]);
 
             // Read number of files
-            let num_files = cursor.read_u32::<LittleEndian>()? as usize;
+            let num_files = read_u32_le(&mut cursor)? as usize;
 
             // Read compressed size (for V14+)
             let compressed_size = if header.version > PackageVersion::V13 {
-                cursor.read_u32::<LittleEndian>()? as usize
+                read_u32_le(&mut cursor)? as usize
             } else {
                 header.file_list_size as usize - 4
             };
@@ -255,44 +270,47 @@ impl Package {
             return Ok(());
         }
 
-        // Calculate the solid data bounds from file entry offsets
-        let mut first_offset = u64::MAX;
-        let mut last_offset = 0u64;
-
+        // Validate: all solid files must be in part 0
         for file in &self.files {
-            let offset = file.entry.offset;
-            let size = file.entry.size_on_disk;
-
-            if offset < first_offset {
-                first_offset = offset;
-            }
-            if offset + size > last_offset {
-                last_offset = offset + size;
+            if file.entry.archive_part != 0 {
+                return Err(PakError::CorruptedSolidArchive(format!(
+                    "solid archive file '{}' references part {} (expected 0)",
+                    file.entry.name, file.entry.archive_part
+                )));
             }
         }
 
-        // The solid frame starts 7 bytes before the first file offset (LZ4 frame header)
-        // But we read from the first file offset position for safety
-        let frame_start = if first_offset >= 7 {
-            first_offset - 7
-        } else {
-            0
-        };
+        // Per lslib: the LZ4 frame starts at the first file's offset field
+        // (which equals DataOffset + 7, where 7 is the LZ4 frame header size).
+        // The frame ends at the last file's offset + size_on_disk.
+        let frame_start = self
+            .files
+            .iter()
+            .map(|f| f.entry.offset)
+            .min()
+            .unwrap_or(0);
 
-        // Read the compressed frame
+        let frame_end = self
+            .files
+            .iter()
+            .map(|f| f.entry.offset + f.entry.size_on_disk)
+            .max()
+            .unwrap_or(0);
+
         let part_data = self.parts[0].data();
-        if last_offset as usize > part_data.len() {
+        if frame_end as usize > part_data.len() {
             return Err(PakError::CorruptedSolidArchive(
                 "solid data bounds exceed file size".to_string(),
             ));
         }
 
-        let frame_data = &part_data[frame_start as usize..last_offset as usize];
+        let frame_data = &part_data[frame_start as usize..frame_end as usize];
 
         // Decompress using LZ4 frame format
         let decompressed = decompress_lz4_frame(frame_data)?;
 
-        // Update file offsets to point into the decompressed data
+        // Update solid_offset for each file: files are sequentially packed in
+        // decompressed order, so we track cumulative uncompressed sizes.
         let solid_data = Arc::new(decompressed);
         let mut current_offset = 0u64;
 
@@ -338,13 +356,10 @@ impl Package {
         self.files.is_empty()
     }
 
-    /// Finds a file by exact path.
+    /// Finds a file by exact path (O(1) via HashMap index).
     pub fn get(&self, path: &str) -> Option<&PackagedFile> {
-        // Normalize path separators
         let normalized = path.replace('\\', "/");
-        self.files
-            .iter()
-            .find(|f| f.entry.name.replace('\\', "/") == normalized)
+        self.index.get(&normalized).map(|&i| &self.files[i])
     }
 
     /// Reads a file's contents into a byte vector.
@@ -385,11 +400,19 @@ impl Package {
 
         let part_data = self.parts[part_index].data();
 
-        // Calculate actual offset
-        // For legacy packages (V10 and earlier), add the data offset for part 0
-        // For V13+ packages, offsets are already absolute
+        // Calculate actual offset with overflow check
         let offset = if part_index == 0 && file.legacy_data_offset > 0 {
-            file.entry.offset + file.legacy_data_offset
+            file.entry
+                .offset
+                .checked_add(file.legacy_data_offset)
+                .ok_or_else(|| {
+                    PakError::CorruptedData(format!(
+                        "file {} offset overflow: {} + {}",
+                        file.name(),
+                        file.entry.offset,
+                        file.legacy_data_offset
+                    ))
+                })?
         } else {
             file.entry.offset
         };
@@ -431,12 +454,14 @@ impl Package {
             })?;
         }
 
-        let mut output_file = File::create(output_path).map_err(|e| PakError::OutputCreation {
-            path: output_path.to_path_buf(),
-            source: e,
-        })?;
+        let output_file =
+            File::create(output_path).map_err(|e| PakError::OutputCreation {
+                path: output_path.to_path_buf(),
+                source: e,
+            })?;
+        let mut buffered = std::io::BufWriter::with_capacity(1 << 20, output_file);
 
-        self.extract_file(file, &mut output_file)
+        self.extract_file(file, &mut buffered)
     }
 
     /// Extracts all files to the given directory.
@@ -444,28 +469,21 @@ impl Package {
         self.extract_filtered(output_dir, |_| true)
     }
 
-    /// Extracts files matching the filter to the given directory.
+    /// Extracts files matching the filter to the given directory in parallel.
     pub fn extract_filtered<P, F>(&self, output_dir: P, filter: F) -> Result<()>
     where
         P: AsRef<Path>,
-        F: Fn(&PackagedFile) -> bool,
+        F: Fn(&PackagedFile) -> bool + Sync,
     {
         let output_dir = output_dir.as_ref();
 
-        for file in &self.files {
-            if file.is_deleted() {
-                continue;
-            }
-
-            if !filter(file) {
-                continue;
-            }
-
-            let output_path = output_dir.join(&file.entry.name);
-            self.extract_file_to_path(file, &output_path)?;
-        }
-
-        Ok(())
+        self.files
+            .par_iter()
+            .filter(|file| !file.is_deleted() && filter(file))
+            .try_for_each(|file| {
+                let output_path = output_dir.join(&file.entry.name);
+                self.extract_file_to_path(file, &output_path).map(|_| ())
+            })
     }
 }
 

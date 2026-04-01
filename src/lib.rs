@@ -65,7 +65,7 @@
 //! #[tokio::main]
 //! async fn main() -> bg3rustpaklib::Result<()> {
 //!     let package = AsyncPackage::open("Game.pak").await?;
-//!     let metadata = package.metadata().await;
+//!     let metadata = package.metadata();
 //!     println!("File count: {}", metadata.file_count);
 //!     Ok(())
 //! }
@@ -97,3 +97,9 @@ pub use async_support::{AsyncPackage, FileInfo};
 
 /// The LSPK package signature.
 pub const SIGNATURE: u32 = package::PACKAGE_SIGNATURE;
+
+/// Test helper module exposing compression internals for integration tests.
+#[doc(hidden)]
+pub mod compression_test_helpers {
+    pub use crate::compression::{decompress, decompress_lz4, decompress_zstd, CompressionMethod};
+}

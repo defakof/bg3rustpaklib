@@ -3,10 +3,25 @@
 use crate::compression::{compress_lz4_single, CompressionMethod};
 use crate::error::{PakError, Result};
 use crate::package::version::{PackageFlags, PackageVersion, PACKAGE_SIGNATURE};
-use byteorder::{LittleEndian, WriteBytesExt};
 use std::fs::File;
 use std::io::{BufWriter, Read, Seek, Write};
 use std::path::Path;
+
+fn write_u8<W: Write>(w: &mut W, v: u8) -> std::io::Result<()> {
+    w.write_all(&[v])
+}
+
+fn write_u16_le<W: Write>(w: &mut W, v: u16) -> std::io::Result<()> {
+    w.write_all(&v.to_le_bytes())
+}
+
+fn write_u32_le<W: Write>(w: &mut W, v: u32) -> std::io::Result<()> {
+    w.write_all(&v.to_le_bytes())
+}
+
+fn write_u64_le<W: Write>(w: &mut W, v: u64) -> std::io::Result<()> {
+    w.write_all(&v.to_le_bytes())
+}
 
 /// Reads the priority value from an existing PAK file header.
 ///
@@ -86,18 +101,6 @@ struct WrittenFileEntry {
 }
 
 /// Builder for creating new PAK packages.
-///
-/// # Example
-///
-/// ```
-/// use bg3rustpaklib::{PackageBuilder, PackageVersion};
-///
-/// let builder = PackageBuilder::new()
-///     .version(PackageVersion::V18)
-///     .add_file("data/example.lsf", "Public/Game/example.lsf")?
-///     .add_directory("assets")?
-///     .build("output.pak");
-/// ```
 pub struct PackageBuilder {
     options: PackageBuilderOptions,
     files: Vec<PackageFileEntry>,
@@ -121,45 +124,30 @@ impl PackageBuilder {
     }
 
     /// Sets the package format version.
-    ///
-    /// Defaults to [`PackageVersion::V18`](crate::package::PackageVersion::V18).
     pub fn version(mut self, version: PackageVersion) -> Self {
         self.options.version = version;
         self
     }
 
     /// Sets the compression method for files in the package.
-    ///
-    /// Defaults to [`CompressionMethod::Lz4`](crate::CompressionMethod::Lz4).
     pub fn compression(mut self, compression: CompressionMethod) -> Self {
         self.options.compression = compression;
         self
     }
 
     /// Sets the package priority.
-    ///
-    /// Higher priority packages are loaded first and can override files
-    /// from lower priority packages.
     pub fn priority(mut self, priority: u8) -> Self {
         self.options.priority = priority;
         self
     }
 
     /// Enables or disables MD5 hash computation for the archive.
-    ///
-    /// When enabled, computes an MD5 hash of all file contents for
-    /// integrity verification.
     pub fn compute_hash(mut self, compute: bool) -> Self {
         self.options.compute_hash = compute;
         self
     }
 
     /// Adds a single file to the package.
-    ///
-    /// # Arguments
-    ///
-    /// * `source_path` - Path to the file on disk to read data from
-    /// * `archive_path` - Path for this file within the PAK archive
     pub fn add_file<P: AsRef<Path>, S: Into<String>>(
         mut self,
         source_path: P,
@@ -173,12 +161,6 @@ impl PackageBuilder {
     }
 
     /// Recursively adds all files from a directory to the package.
-    ///
-    /// Maintains the directory structure relative to `dir_path`.
-    ///
-    /// # Arguments
-    ///
-    /// * `dir_path` - Path to the directory to add
     pub fn add_directory<P: AsRef<Path>>(mut self, dir_path: P) -> Result<Self> {
         let dir_path = dir_path.as_ref();
         self.add_directory_recursive(dir_path, dir_path)?;
@@ -207,21 +189,13 @@ impl PackageBuilder {
     }
 
     /// Builds the package and writes it to the specified output path.
-    ///
-    /// # Arguments
-    ///
-    /// * `output_path` - Path where the PAK file will be written
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if file I/O fails or the package cannot be written.
     pub fn build<P: AsRef<Path>>(self, output_path: P) -> Result<()> {
         let output_path = output_path.as_ref();
         let file = File::create(output_path).map_err(|e| PakError::OutputCreation {
             path: output_path.to_path_buf(),
             source: e,
         })?;
-        let mut writer = BufWriter::new(file);
+        let mut writer = BufWriter::with_capacity(1 << 20, file);
 
         match self.options.version {
             PackageVersion::V18 => self.write_v18(&mut writer),
@@ -232,15 +206,24 @@ impl PackageBuilder {
     }
 
     fn write_v18<W: Write + Seek>(self, writer: &mut W) -> Result<()> {
-        writer.write_u32::<LittleEndian>(PACKAGE_SIGNATURE)?;
-        writer.write_u32::<LittleEndian>(self.options.version.as_u32())?;
-        writer.write_u64::<LittleEndian>(0)?;
-        writer.write_u32::<LittleEndian>(0)?;
-        writer.write_u8(self.options.flags.as_u8())?;
-        writer.write_u8(self.options.priority)?;
+        // V18 header layout (40 bytes):
+        // [0..4]   signature (u32)
+        // [4..8]   version (u32)
+        // [8..16]  file_list_offset (u64) — placeholder, fixed up below
+        // [16..20] file_list_size (u32)   — placeholder, fixed up below
+        // [20]     flags (u8)
+        // [21]     priority (u8)
+        // [22..38] md5 (16 bytes)         — placeholder, filled if compute_hash
+        // [38..40] num_parts (u16)
+        write_u32_le(writer, PACKAGE_SIGNATURE)?;
+        write_u32_le(writer, self.options.version.as_u32())?;
+        write_u64_le(writer, 0)?; // file_list_offset placeholder
+        write_u32_le(writer, 0)?; // file_list_size placeholder
+        write_u8(writer, self.options.flags.as_u8())?;
+        write_u8(writer, self.options.priority)?;
         let mut md5 = [0u8; 16];
         writer.write_all(&md5)?;
-        writer.write_u16::<LittleEndian>(1)?;
+        write_u16_le(writer, 1)?; // num_parts
 
         let mut written_entries: Vec<WrittenFileEntry> = Vec::with_capacity(self.files.len());
         let mut all_data: Vec<Vec<u8>> = Vec::new();
@@ -285,8 +268,8 @@ impl PackageBuilder {
         let file_list_data = self.build_file_list_v18(&written_entries)?;
         let compressed_list = compress_lz4_single(&file_list_data);
 
-        writer.write_u32::<LittleEndian>(written_entries.len() as u32)?;
-        writer.write_u32::<LittleEndian>(compressed_list.len() as u32)?;
+        write_u32_le(writer, written_entries.len() as u32)?;
+        write_u32_le(writer, compressed_list.len() as u32)?;
         writer.write_all(&compressed_list)?;
 
         let file_list_size = (4 + 4 + compressed_list.len()) as u32;
@@ -295,9 +278,11 @@ impl PackageBuilder {
             md5 = compute_archive_hash(&all_data, self.options.version);
         }
 
+        // Fix up the header: seek to offset 8 (after sig+ver)
         writer.seek(std::io::SeekFrom::Start(8))?;
-        writer.write_u64::<LittleEndian>(file_list_offset)?;
-        writer.write_u32::<LittleEndian>(file_list_size)?;
+        write_u64_le(writer, file_list_offset)?;
+        write_u32_le(writer, file_list_size)?;
+        // flags (20) and priority (21) already written; seek to 22 for md5
         writer.seek(std::io::SeekFrom::Start(22))?;
         writer.write_all(&md5)?;
 
@@ -309,12 +294,20 @@ impl PackageBuilder {
     }
 
     fn write_v15<W: Write + Seek>(self, writer: &mut W) -> Result<()> {
-        writer.write_u32::<LittleEndian>(PACKAGE_SIGNATURE)?;
-        writer.write_u32::<LittleEndian>(self.options.version.as_u32())?;
-        writer.write_u64::<LittleEndian>(0)?;
-        writer.write_u32::<LittleEndian>(0)?;
-        writer.write_u8(self.options.flags.as_u8())?;
-        writer.write_u8(self.options.priority)?;
+        // V15 header layout (38 bytes, no num_parts field):
+        // [0..4]   signature (u32)
+        // [4..8]   version (u32)
+        // [8..16]  file_list_offset (u64) — placeholder, fixed up below
+        // [16..20] file_list_size (u32)   — placeholder, fixed up below
+        // [20]     flags (u8)
+        // [21]     priority (u8)
+        // [22..38] md5 (16 bytes)         — placeholder, filled if compute_hash
+        write_u32_le(writer, PACKAGE_SIGNATURE)?;
+        write_u32_le(writer, self.options.version.as_u32())?;
+        write_u64_le(writer, 0)?; // file_list_offset placeholder
+        write_u32_le(writer, 0)?; // file_list_size placeholder
+        write_u8(writer, self.options.flags.as_u8())?;
+        write_u8(writer, self.options.priority)?;
         let mut md5 = [0u8; 16];
         writer.write_all(&md5)?;
 
@@ -361,8 +354,8 @@ impl PackageBuilder {
         let file_list_data = self.build_file_list_v15(&written_entries)?;
         let compressed_list = compress_lz4_single(&file_list_data);
 
-        writer.write_u32::<LittleEndian>(written_entries.len() as u32)?;
-        writer.write_u32::<LittleEndian>(compressed_list.len() as u32)?;
+        write_u32_le(writer, written_entries.len() as u32)?;
+        write_u32_le(writer, compressed_list.len() as u32)?;
         writer.write_all(&compressed_list)?;
 
         let file_list_size = 4 + 4 + compressed_list.len();
@@ -371,9 +364,11 @@ impl PackageBuilder {
             md5 = compute_archive_hash(&all_data, self.options.version);
         }
 
-        writer.seek(std::io::SeekFrom::Start(20))?;
-        writer.write_u64::<LittleEndian>(file_list_offset)?;
-        writer.write_u32::<LittleEndian>(file_list_size as u32)?;
+        // Fix up the header: seek to offset 8 (after sig+ver)
+        writer.seek(std::io::SeekFrom::Start(8))?;
+        write_u64_le(writer, file_list_offset)?;
+        write_u32_le(writer, file_list_size as u32)?;
+        // flags (20) and priority (21) already written; seek to 22 for md5
         writer.seek(std::io::SeekFrom::Start(22))?;
         writer.write_all(&md5)?;
 
@@ -392,18 +387,19 @@ impl PackageBuilder {
 
             let offset_low = (entry.offset & 0xFFFFFFFF) as u32;
             let offset_high = ((entry.offset >> 32) & 0xFFFF) as u16;
-            data.write_u32::<LittleEndian>(offset_low)?;
-            data.write_u16::<LittleEndian>(offset_high)?;
-            data.write_u8(entry.archive_part as u8)?;
-            data.write_u8(entry.compression_flags)?;
-            data.write_u32::<LittleEndian>(entry.size_on_disk as u32)?;
+            write_u32_le(&mut data, offset_low)?;
+            write_u16_le(&mut data, offset_high)?;
+            write_u8(&mut data, entry.archive_part as u8)?;
+            write_u8(&mut data, entry.compression_flags)?;
+            write_u32_le(&mut data, entry.size_on_disk as u32)?;
 
+            // Per lslib: uncompressed_size is 0 for uncompressed entries
             let uncompressed = if entry.compression_flags == 0 {
                 0u32
             } else {
                 entry.uncompressed_size as u32
             };
-            data.write_u32::<LittleEndian>(uncompressed)?;
+            write_u32_le(&mut data, uncompressed)?;
         }
 
         Ok(data)
@@ -419,20 +415,21 @@ impl PackageBuilder {
             name_buf[..len].copy_from_slice(&name_bytes[..len]);
             data.extend_from_slice(&name_buf);
 
-            data.write_u64::<LittleEndian>(entry.offset)?;
-            data.write_u64::<LittleEndian>(entry.size_on_disk)?;
+            write_u64_le(&mut data, entry.offset)?;
+            write_u64_le(&mut data, entry.size_on_disk)?;
 
+            // Per lslib: uncompressed_size is 0 for uncompressed entries
             let uncompressed = if entry.compression_flags == 0 {
                 0u64
             } else {
                 entry.uncompressed_size
             };
-            data.write_u64::<LittleEndian>(uncompressed)?;
+            write_u64_le(&mut data, uncompressed)?;
 
-            data.write_u32::<LittleEndian>(entry.archive_part)?;
-            data.write_u32::<LittleEndian>(entry.compression_flags as u32)?;
-            data.write_u32::<LittleEndian>(0)?;
-            data.write_u32::<LittleEndian>(0)?;
+            write_u32_le(&mut data, entry.archive_part)?;
+            write_u32_le(&mut data, entry.compression_flags as u32)?;
+            write_u32_le(&mut data, 0)?;
+            write_u32_le(&mut data, 0)?;
         }
 
         Ok(data)
@@ -449,6 +446,8 @@ fn compute_archive_hash(data: &[Vec<u8>], _version: PackageVersion) -> [u8; 16] 
     let mut md5 = [0u8; 16];
     md5.copy_from_slice(&result.0);
 
+    // Intentional Larian obfuscation: each byte is incremented by 1 (wrapping).
+    // Matches lslib's PackageWriter.cs ComputeArchiveHash(): hash[i] += 1 for all i.
     for byte in &mut md5 {
         *byte = byte.wrapping_add(1);
     }

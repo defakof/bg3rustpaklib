@@ -1,14 +1,16 @@
 //! Search and filtering utilities for package contents.
 
 use crate::package::{Package, PackagedFile};
-use glob::Pattern;
+use globset::{Glob, GlobMatcher};
+
+#[cfg(feature = "regex")]
 use regex::Regex;
 
 /// Extension trait for searching within packages.
 pub trait PackageSearch {
     /// Finds files matching a glob pattern.
     ///
-    /// The pattern uses standard glob syntax:
+    /// Supports `**` for recursive matching:
     /// - `*` matches any sequence of characters except `/`
     /// - `**` matches any sequence of characters including `/`
     /// - `?` matches any single character
@@ -22,50 +24,32 @@ pub trait PackageSearch {
 
     /// Finds files matching a regular expression.
     ///
-    /// The regex is matched against the full file path.
+    /// Requires the `regex` feature.
     ///
     /// # Example
     /// ```ignore
     /// let regex = Regex::new(r"\.lsf$").unwrap();
     /// let matches = package.find_regex(&regex);
     /// ```
+    #[cfg(feature = "regex")]
     fn find_regex(&self, regex: &Regex) -> Vec<&PackagedFile>;
 
     /// Finds files with names containing the given substring (case-insensitive).
-    ///
-    /// # Example
-    /// ```ignore
-    /// let matches = package.find_containing("character");
-    /// ```
     fn find_containing(&self, substring: &str) -> Vec<&PackagedFile>;
 
-    /// Finds files with the given extension.
-    ///
-    /// The extension should not include the leading dot.
-    ///
-    /// # Example
-    /// ```ignore
-    /// let matches = package.find_by_extension("lsf");
-    /// ```
+    /// Finds files with the given extension (without the leading dot).
     fn find_by_extension(&self, extension: &str) -> Vec<&PackagedFile>;
 
     /// Finds files in the given directory (including subdirectories).
-    ///
-    /// # Example
-    /// ```ignore
-    /// let matches = package.find_in_directory("Public/Game/GUI");
-    /// ```
     fn find_in_directory(&self, directory: &str) -> Vec<&PackagedFile>;
 }
 
 impl PackageSearch for Package {
     fn find(&self, pattern: &str) -> Vec<&PackagedFile> {
-        // Normalize the pattern to use forward slashes
         let pattern = pattern.replace('\\', "/");
 
-        // Try to compile the glob pattern
-        let glob_pattern = match Pattern::new(&pattern) {
-            Ok(p) => p,
+        let matcher = match Glob::new(&pattern) {
+            Ok(g) => g.compile_matcher(),
             Err(_) => return Vec::new(),
         };
 
@@ -73,11 +57,12 @@ impl PackageSearch for Package {
             .iter()
             .filter(|file| {
                 let name = file.name().replace('\\', "/");
-                glob_pattern.matches(&name)
+                matcher.is_match(&name)
             })
             .collect()
     }
 
+    #[cfg(feature = "regex")]
     fn find_regex(&self, regex: &Regex) -> Vec<&PackagedFile> {
         self.files()
             .iter()
@@ -105,7 +90,6 @@ impl PackageSearch for Package {
     }
 
     fn find_in_directory(&self, directory: &str) -> Vec<&PackagedFile> {
-        // Normalize directory path
         let dir = directory
             .replace('\\', "/")
             .trim_end_matches('/')
@@ -124,10 +108,10 @@ impl PackageSearch for Package {
 
 /// A file filter that can be applied during extraction.
 pub struct FileFilter {
-    patterns: Vec<Pattern>,
+    patterns: Vec<GlobMatcher>,
     extensions: Vec<String>,
     directories: Vec<String>,
-    exclude_patterns: Vec<Pattern>,
+    exclude_patterns: Vec<GlobMatcher>,
 }
 
 impl FileFilter {
@@ -141,10 +125,10 @@ impl FileFilter {
         }
     }
 
-    /// Adds a glob pattern to match.
+    /// Adds a glob pattern to match (supports `**` for recursive matching).
     pub fn pattern(mut self, pattern: &str) -> Self {
-        if let Ok(p) = Pattern::new(&pattern.replace('\\', "/")) {
-            self.patterns.push(p);
+        if let Ok(g) = Glob::new(&pattern.replace('\\', "/")) {
+            self.patterns.push(g.compile_matcher());
         }
         self
     }
@@ -164,8 +148,8 @@ impl FileFilter {
 
     /// Adds a glob pattern to exclude.
     pub fn exclude(mut self, pattern: &str) -> Self {
-        if let Ok(p) = Pattern::new(&pattern.replace('\\', "/")) {
-            self.exclude_patterns.push(p);
+        if let Ok(g) = Glob::new(&pattern.replace('\\', "/")) {
+            self.exclude_patterns.push(g.compile_matcher());
         }
         self
     }
@@ -177,7 +161,7 @@ impl FileFilter {
 
         // Check exclusions first
         for pattern in &self.exclude_patterns {
-            if pattern.matches(&name) {
+            if pattern.is_match(&name) {
                 return false;
             }
         }
@@ -189,7 +173,7 @@ impl FileFilter {
 
         // Check patterns
         for pattern in &self.patterns {
-            if pattern.matches(&name) {
+            if pattern.is_match(&name) {
                 return true;
             }
         }
@@ -276,5 +260,18 @@ mod tests {
 
         assert!(filter.matches(&file1));
         assert!(!filter.matches(&file2));
+    }
+
+    #[test]
+    fn test_glob_double_star() {
+        let filter = FileFilter::new().pattern("Public/**/*.lsf");
+
+        let file1 = make_test_file("Public/Game/deep/nested/test.lsf");
+        let file2 = make_test_file("Public/Game/test.txt");
+        let file3 = make_test_file("Other/Game/test.lsf");
+
+        assert!(filter.matches(&file1));
+        assert!(!filter.matches(&file2));
+        assert!(!filter.matches(&file3));
     }
 }

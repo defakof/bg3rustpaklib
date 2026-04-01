@@ -3,8 +3,31 @@
 use crate::compression::CompressionMethod;
 use crate::error::Result;
 use crate::package::version::PackageVersion;
-use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Read;
+
+fn read_u8<R: Read>(r: &mut R) -> std::io::Result<u8> {
+    let mut b = [0u8; 1];
+    r.read_exact(&mut b)?;
+    Ok(b[0])
+}
+
+fn read_u16_le<R: Read>(r: &mut R) -> std::io::Result<u16> {
+    let mut b = [0u8; 2];
+    r.read_exact(&mut b)?;
+    Ok(u16::from_le_bytes(b))
+}
+
+fn read_u32_le<R: Read>(r: &mut R) -> std::io::Result<u32> {
+    let mut b = [0u8; 4];
+    r.read_exact(&mut b)?;
+    Ok(u32::from_le_bytes(b))
+}
+
+fn read_u64_le<R: Read>(r: &mut R) -> std::io::Result<u64> {
+    let mut b = [0u8; 8];
+    r.read_exact(&mut b)?;
+    Ok(u64::from_le_bytes(b))
+}
 
 /// Deletion marker offset value.
 const DELETION_MARKER: u64 = 0x0000BEEFDEADBEEF;
@@ -80,10 +103,10 @@ impl FileEntry {
         reader.read_exact(&mut name_buf)?;
         let name = read_null_terminated_string(&name_buf);
 
-        let offset = reader.read_u32::<LittleEndian>()? as u64;
-        let size_on_disk = reader.read_u32::<LittleEndian>()? as u64;
-        let uncompressed_size = reader.read_u32::<LittleEndian>()? as u64;
-        let archive_part = reader.read_u32::<LittleEndian>()?;
+        let offset = read_u32_le(reader)? as u64;
+        let size_on_disk = read_u32_le(reader)? as u64;
+        let uncompressed_size = read_u32_le(reader)? as u64;
+        let archive_part = read_u32_le(reader)?;
 
         // V7 uses Zlib compression if uncompressed_size > 0
         let compression_flags = if uncompressed_size > 0 { 0x21 } else { 0x00 };
@@ -105,12 +128,12 @@ impl FileEntry {
         reader.read_exact(&mut name_buf)?;
         let name = read_null_terminated_string(&name_buf);
 
-        let offset = reader.read_u32::<LittleEndian>()? as u64;
-        let size_on_disk = reader.read_u32::<LittleEndian>()? as u64;
-        let uncompressed_size = reader.read_u32::<LittleEndian>()? as u64;
-        let archive_part = reader.read_u32::<LittleEndian>()?;
-        let flags = reader.read_u32::<LittleEndian>()?;
-        let crc = reader.read_u32::<LittleEndian>()?;
+        let offset = read_u32_le(reader)? as u64;
+        let size_on_disk = read_u32_le(reader)? as u64;
+        let uncompressed_size = read_u32_le(reader)? as u64;
+        let archive_part = read_u32_le(reader)?;
+        let flags = read_u32_le(reader)?;
+        let crc = read_u32_le(reader)?;
 
         Ok(FileEntry {
             name,
@@ -129,13 +152,13 @@ impl FileEntry {
         reader.read_exact(&mut name_buf)?;
         let name = read_null_terminated_string(&name_buf);
 
-        let offset = reader.read_u64::<LittleEndian>()?;
-        let size_on_disk = reader.read_u64::<LittleEndian>()?;
-        let uncompressed_size = reader.read_u64::<LittleEndian>()?;
-        let archive_part = reader.read_u32::<LittleEndian>()?;
-        let flags = reader.read_u32::<LittleEndian>()?;
-        let crc = reader.read_u32::<LittleEndian>()?;
-        let _unknown = reader.read_u32::<LittleEndian>()?;
+        let offset = read_u64_le(reader)?;
+        let size_on_disk = read_u64_le(reader)?;
+        let uncompressed_size = read_u64_le(reader)?;
+        let archive_part = read_u32_le(reader)?;
+        let flags = read_u32_le(reader)?;
+        let crc = read_u32_le(reader)?;
+        let _unknown = read_u32_le(reader)?;
 
         Ok(FileEntry {
             name,
@@ -154,15 +177,15 @@ impl FileEntry {
         reader.read_exact(&mut name_buf)?;
         let name = read_null_terminated_string(&name_buf);
 
-        let offset_low = reader.read_u32::<LittleEndian>()? as u64;
-        let offset_high = reader.read_u16::<LittleEndian>()? as u64;
+        let offset_low = read_u32_le(reader)? as u64;
+        let offset_high = read_u16_le(reader)? as u64;
         let offset = offset_low | (offset_high << 32);
 
-        let archive_part = reader.read_u8()? as u32;
-        let flags = reader.read_u8()?;
+        let archive_part = read_u8(reader)? as u32;
+        let flags = read_u8(reader)?;
 
-        let size_on_disk = reader.read_u32::<LittleEndian>()? as u64;
-        let uncompressed_size = reader.read_u32::<LittleEndian>()? as u64;
+        let size_on_disk = read_u32_le(reader)? as u64;
+        let uncompressed_size = read_u32_le(reader)? as u64;
 
         Ok(FileEntry {
             name,

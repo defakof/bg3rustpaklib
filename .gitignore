@@ -23,3 +23,10 @@ target/*/*.pdb
 *.swp
 *.swo
 *~
+
+# Test PAK files (real BG3 mod files, not for distribution)
+tests/paks/
+
+# Claude Code internal files
+.claude/
+plan.md
