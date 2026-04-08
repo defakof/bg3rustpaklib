@@ -13,6 +13,15 @@ use std::io::{BufReader, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+/// A file extracted from a PAK package, containing its path and raw data.
+#[derive(Debug, Clone)]
+pub struct ExtractedFile {
+    /// The file's path inside the PAK (e.g., `"Localization/English/strings.loca"`).
+    pub path: String,
+    /// The decompressed file contents.
+    pub data: Vec<u8>,
+}
+
 fn read_u32_le<R: Read>(r: &mut R) -> std::io::Result<u32> {
     let mut b = [0u8; 4];
     r.read_exact(&mut b)?;
@@ -467,6 +476,54 @@ impl Package {
     /// Extracts all files to the given directory.
     pub fn extract_all<P: AsRef<Path>>(&self, output_dir: P) -> Result<()> {
         self.extract_filtered(output_dir, |_| true)
+    }
+
+    /// Reads all files with the given extension and returns their paths and data.
+    ///
+    /// The extension should be provided without a leading dot (e.g., `"loca"`, `"lsx"`).
+    pub fn extract_by_extension(&self, ext: &str) -> Result<Vec<ExtractedFile>> {
+        let ext_lower = ext.to_lowercase();
+        let with_dot = format!(".{}", ext_lower);
+
+        self.files
+            .iter()
+            .filter(|f| !f.is_deleted() && f.name().to_lowercase().ends_with(&with_dot))
+            .map(|f| {
+                let data = self.read_file(f)?;
+                Ok(ExtractedFile {
+                    path: f.name().to_string(),
+                    data,
+                })
+            })
+            .collect()
+    }
+
+    /// Reads all files under a directory prefix and returns their paths and data.
+    ///
+    /// The prefix is matched against the start of each file's path (case-insensitive,
+    /// normalizes backslashes). A trailing `/` is added if not present.
+    pub fn extract_by_directory(&self, dir_prefix: &str) -> Result<Vec<ExtractedFile>> {
+        let prefix = {
+            let mut p = dir_prefix.replace('\\', "/");
+            if !p.ends_with('/') {
+                p.push('/');
+            }
+            p.to_lowercase()
+        };
+
+        self.files
+            .iter()
+            .filter(|f| {
+                !f.is_deleted() && f.name().replace('\\', "/").to_lowercase().starts_with(&prefix)
+            })
+            .map(|f| {
+                let data = self.read_file(f)?;
+                Ok(ExtractedFile {
+                    path: f.name().to_string(),
+                    data,
+                })
+            })
+            .collect()
     }
 
     /// Extracts files matching the filter to the given directory in parallel.

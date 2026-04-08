@@ -9,7 +9,7 @@ mod version;
 mod writer;
 
 pub use header::PackageHeader;
-pub use reader::{Package, PackageMetadata, PackagedFile};
+pub use reader::{ExtractedFile, Package, PackageMetadata, PackagedFile};
 pub use version::{PackageFlags, PackageVersion, PACKAGE_SIGNATURE};
 pub use writer::{
     get_package_flags, get_package_priority, PackageBuilder, PackageBuilderOptions,

@@ -52,6 +52,49 @@ use std::path::Path;
 /// The LOCA file signature ("LOCA" in little-endian).
 pub const LOCA_SIGNATURE: u32 = 0x41434f4c;
 
+/// All language names used by Baldur's Gate 3 for localization paths.
+pub const BG3_LANGUAGES: &[&str] = &[
+    "English",
+    "French",
+    "German",
+    "Italian",
+    "Spanish",
+    "Portuguese",
+    "Russian",
+    "Polish",
+    "Japanese",
+    "Korean",
+    "ChineseSimplified",
+    "ChineseTraditional",
+    "Turkish",
+    "Ukrainian",
+];
+
+/// Extracts the BG3 language name from a PAK-internal path.
+///
+/// Looks for a `Localization/{Language}/...` segment anywhere in the path, so both
+/// `"Localization/Russian/foo.loca"` and `"Mods/MyMod/Localization/Russian/russian.xml"`
+/// return `Some("Russian")`.
+///
+/// Returns `None` if no such segment is found or the language isn't recognized.
+pub fn detect_language_from_path(path: &str) -> Option<&'static str> {
+    let normalized = path.replace('\\', "/");
+    let parts: Vec<&str> = normalized.split('/').collect();
+
+    for window in parts.windows(2) {
+        if window[0].eq_ignore_ascii_case("Localization") {
+            if let Some(&lang) = BG3_LANGUAGES
+                .iter()
+                .find(|&&lang| lang.eq_ignore_ascii_case(window[1]))
+            {
+                return Some(lang);
+            }
+        }
+    }
+
+    None
+}
+
 /// Size of the LOCA header in bytes.
 pub const HEADER_SIZE: usize = 12;
 

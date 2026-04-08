@@ -87,8 +87,9 @@ mod async_support;
 pub use compression::CompressionMethod;
 pub use error::{PakError, Result};
 pub use package::{
-    get_package_flags, get_package_priority, Package, PackageBuilder, PackageBuilderOptions,
-    PackageFileEntry, PackageFlags, PackageHeader, PackageMetadata, PackageVersion, PackagedFile,
+    get_package_flags, get_package_priority, ExtractedFile, Package, PackageBuilder,
+    PackageBuilderOptions, PackageFileEntry, PackageFlags, PackageHeader, PackageMetadata,
+    PackageVersion, PackagedFile,
 };
 pub use search::{FileFilter, PackageSearch};
 
