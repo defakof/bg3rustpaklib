@@ -144,6 +144,24 @@ See [docs.rs](https://docs.rs/bg3rustpaklib) for full API documentation.
 
 MIT License - see LICENSE file for details.
 
+## Related projects
+
+- **Translation analyzer DLL**: [`defakof/bg3rustranslatorfinder`](https://github.com/defakof/bg3rustranslatorfinder)
+- **Nexus page scraper DLL**: [`defakof/nexus-scraper`](https://github.com/defakof/nexus-scraper)
+- **MO2 plugin**: [`defakof/mo2-bg3-translation-checker`](https://github.com/defakof/mo2-bg3-translation-checker)
+
 ## Credits
 
 Inspired by [lslib](https://github.com/Norbyte/lslib) by Norbyte.
+
+## Credits & third‑party
+
+Key libraries used by this crate (see `Cargo.toml` / `Cargo.lock` for the full list and exact versions):
+
+- **`thiserror`**: error types.
+- **`memmap2`**: memory-mapped file I/O.
+- **`lz4_flex` / `zstd` / `flate2`**: decompression support (note: `flate2` is configured with `zlib-ng`).
+- **`globset`**: glob matching.
+- **`rayon`**: parallel extraction.
+- **`tokio`** (optional `async` feature): async filesystem and runtime helpers.
+- **`regex`** (optional `regex` feature): regex matching.
