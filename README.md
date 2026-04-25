@@ -1,77 +1,92 @@
 # bg3rustpaklib
 
-A Rust library for reading, extracting, and creating Baldur's Gate 3 PAK files.
+A Rust library for reading, searching, extracting, and creating Baldur's Gate 3 PAK (`.pak` / LSPK) archives, plus LOCA localization helpers.
 
 ## Overview
 
-This library provides functionality for working with Larian Studios' PAK (LSPK) archive format used in Baldur's Gate 3. It is similar to [lslib](https://github.com/Norbyte/lslib) but written in Rust. (and appears to be faster, tho my tests are not isolated and are not professional by any means)
+`bg3rustpaklib` provides a native Rust implementation of common BG3 archive workflows (similar in scope to [lslib](https://github.com/Norbyte/lslib)):
+
+- open and inspect package metadata
+- enumerate/search files
+- read/extract files
+- create new packages from files/directories
+- parse and write `.loca` / localization XML data
 
 ![bg3rustpaklib vs lslib](./lslib-comparison.svg)
 
 ## Features
 
-- **Read PAK files** - Supports versions 15, 16, and 18 (BG3 format)
-- **List and search files** - Find files by pattern or search within packages
-- **Extract files** - Extract individual files or entire packages to disk
-- **Create PAK files** - Build new packages from directories
-- **Compression support** - LZ4 and Zstd decompression
-- **Solid archives** - Support for solid archive handling
-- **Async API** - Optional async support via `async` feature
-- **C ABI (`ffi` feature)** - Optional C-compatible exports for embedding in C/C++ (build as `staticlib` when you need a `.lib` / `.a`)
+- **PAK read support** for BG3 package versions **15, 16, and 18**
+- **PAK write support** for versions **15, 16, and 18** via `PackageBuilder`
+- **File search helpers** (glob by default, regex with feature flag)
+- **Extraction APIs** for single files, filtered sets, or full archives
+- **Compression support**: LZ4 and Zstd decompression (plus zlib support for formats that need it)
+- **Solid archive support**
+- **Async wrapper API** with the `async` feature
+- **Optional C ABI exports** with the `ffi` feature
+- **LOCA utilities** for binary `.loca` and XML localization conversion
 
-## Usage
-
-Add to your `Cargo.toml`:
+## Installation
 
 ```toml
 [dependencies]
-bg3rustpaklib = "0.1"
+bg3rustpaklib = "0.1.5"
 ```
 
-### Basic Example
+### Optional features
+
+```toml
+[dependencies]
+bg3rustpaklib = { version = "0.1.5", features = ["async", "regex", "ffi"] }
+```
+
+- `async`: enables `AsyncPackage` (Tokio-based async wrappers)
+- `regex`: enables regex-based search APIs
+- `ffi`: enables C-compatible exported functions
+
+## Quick Start (read/search/extract)
 
 ```rust
 use bg3rustpaklib::{Package, PackageSearch};
 
 fn main() -> bg3rustpaklib::Result<()> {
-    // Open a PAK file
     let package = Package::open("Game.pak")?;
 
-    // Get package metadata
     let metadata = package.metadata();
-    println!("Package version: {}", metadata.version);
-    println!("File count: {}", metadata.file_count);
+    println!("Version: {:?}", metadata.version);
+    println!("Files: {}", metadata.file_count);
 
-    // List all files
-    for file in package.files() {
+    for file in package.find("**/*.lsf") {
         println!("{} ({} bytes)", file.name(), file.size());
     }
 
-    // Find files by pattern
-    let lsf_files = package.find("**/*.lsf");
-    println!("Found {} .lsf files", lsf_files.len());
-
-    // Extract a specific file
     if let Some(file) = package.get("Public/Game/GUI/Assets/Tooltips/tooltip.lsf") {
-        let contents = package.read_file(file)?;
-        println!("File size: {} bytes", contents.len());
+        let bytes = package.read_file(file)?;
+        println!("Read {} bytes", bytes.len());
     }
 
-    // Extract all files to a directory
     package.extract_all("output/")?;
+    Ok(())
+}
+```
+
+## Building a PAK
+
+```rust
+use bg3rustpaklib::{CompressionMethod, PackageBuilder, PackageVersion};
+
+fn main() -> bg3rustpaklib::Result<()> {
+    PackageBuilder::new()
+        .version(PackageVersion::V18)
+        .compression(CompressionMethod::Lz4)
+        .add_directory("./my_mod_files")?
+        .build("./MyMod.pak")?;
 
     Ok(())
 }
 ```
 
-### Async Support
-
-Enable the `async` feature for async APIs:
-
-```toml
-[dependencies]
-bg3rustpaklib = { version = "0.1", features = ["async"] }
-```
+## Async Example
 
 ```rust
 use bg3rustpaklib::AsyncPackage;
@@ -85,84 +100,55 @@ async fn main() -> bg3rustpaklib::Result<()> {
 }
 ```
 
-## Command-line Tools
+## LOCA Utilities
 
-Several example tools are included:
+```rust
+use bg3rustpaklib::loca::{LocaFormat, LocaUtils};
 
-### dump_header
-
-Dumps hex view of the first and last 64 bytes of a PAK file:
-
-```bash
-cargo run --example dump_header path/to/file.pak
+fn main() -> bg3rustpaklib::loca::Result<()> {
+    let resource = LocaUtils::load("Localization/English/my_mod.loca")?;
+    LocaUtils::save_with_format(&resource, "Localization/English/my_mod.xml", LocaFormat::Xml)?;
+    Ok(())
+}
 ```
 
-### detailed_dump
+## Included examples
 
-Shows detailed package information including file list:
+Run with `cargo run --example <name> -- <args...>`:
 
-```bash
-cargo run --example detailed_dump path/to/file.pak
-```
+- `dump_header` — print header bytes from a PAK
+- `detailed_dump` — show metadata and file list details
+- `compare_paks` — compare metadata from multiple PAKs
+- `repack_test` — extract and repack to validate writer flow
 
-### compare_paks
-
-Compares multiple PAK files and shows their metadata:
-
-```bash
-cargo run --example compare_paks path/to/pak1.pak path/to/pak2.pak
-```
-
-### repack_test
-
-Demonstrates extracting and repacking a PAK file:
+## Build / Test
 
 ```bash
-cargo run --example repack_test input.pak output.pak
-```
-
-## Building
-
-```bash
-# Build the library
 cargo build
-
-# Build with async support
 cargo build --features async
-
-# Run tests
-cargo test
-
-# Build examples
 cargo build --examples
+cargo test
 ```
 
-## API Reference
+## FFI / C++ integration
 
-See [docs.rs](https://docs.rs/bg3rustpaklib) for full API documentation.
+The crate normally builds as an `rlib`. To build a static library for C/C++:
+
+```bash
+cargo rustc --release --features ffi --crate-type=staticlib
+```
+
+C header: `include/bg3rustpaklib.h`
+
+## Documentation
+
+- API docs: <https://docs.rs/bg3rustpaklib>
+- Source: <https://github.com/defakof/bg3rustpaklib>
 
 ## License
 
-MIT License - see LICENSE file for details.
-
-## Related projects
-
-- **Translation analyzer DLL**: [`defakof/bg3rustranslatorfinder`](https://github.com/defakof/bg3rustranslatorfinder)
-- **Nexus page scraper DLL**: [`defakof/nexus-scraper`](https://github.com/defakof/nexus-scraper)
-- **MO2 plugin**: [`defakof/mo2-bg3-translation-checker`](https://github.com/defakof/mo2-bg3-translation-checker)
+MIT — see [LICENSE](./LICENSE).
 
 ## Credits
 
 Inspired by [lslib](https://github.com/Norbyte/lslib) by Norbyte.
-
-## Credits & third‑party
-
-Key libraries used by this crate (see `Cargo.toml` / `Cargo.lock` for the full list and exact versions):
-
-- **`thiserror`**: error types.
-- **`memmap2`**: memory-mapped file I/O.
-- **`lz4_flex` / `zstd` / `flate2`**: decompression support (note: `flate2` is configured with `zlib-ng`).
-- **`globset`**: glob matching.
-- **`rayon`**: parallel extraction.
-- **`tokio`** (optional `async` feature): async filesystem and runtime helpers.
-- **`regex`** (optional `regex` feature): regex matching.
