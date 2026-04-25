@@ -231,7 +231,10 @@ impl LocaUtils {
     }
 
     /// Loads a localization resource from a reader.
-    pub fn load_from_reader<R: std::io::Read>(reader: R, format: LocaFormat) -> Result<LocaResource> {
+    pub fn load_from_reader<R: std::io::Read>(
+        reader: R,
+        format: LocaFormat,
+    ) -> Result<LocaResource> {
         match format {
             LocaFormat::Loca => {
                 let mut loca_reader = LocaReader::new(reader);
@@ -301,10 +304,7 @@ impl LocaUtils {
     }
 
     /// Converts a localization resource between formats.
-    pub fn convert(
-        input_path: impl AsRef<Path>,
-        output_path: impl AsRef<Path>,
-    ) -> Result<()> {
+    pub fn convert(input_path: impl AsRef<Path>, output_path: impl AsRef<Path>) -> Result<()> {
         let resource = Self::load(input_path)?;
         Self::save(&resource, output_path)
     }

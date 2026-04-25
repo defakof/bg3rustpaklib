@@ -38,13 +38,20 @@ fn vec_into_bg3bytes(v: Vec<u8>) -> *mut Bg3Bytes {
 }
 
 /// Free a `Bg3Bytes` buffer returned by any `bg3*` function.
+///
+/// # Safety
+///
+/// `bytes` must be null or a pointer returned by this library. Passing any other
+/// pointer, or passing the same pointer more than once, is undefined behavior.
 #[no_mangle]
 pub unsafe extern "C" fn bg3_free_bytes(bytes: *mut Bg3Bytes) {
     if bytes.is_null() {
         return;
     }
+    // SAFETY: caller guarantees bytes was allocated by vec_into_bg3bytes.
     let b = unsafe { Box::from_raw(bytes) };
     if !b.data.is_null() {
+        // SAFETY: data/len come from the boxed slice allocated in vec_into_bg3bytes.
         let _ = unsafe { Box::from_raw(std::slice::from_raw_parts_mut(b.data as *mut u8, b.len)) };
     }
 }
@@ -62,6 +69,7 @@ pub extern "C" fn bg3pak_open(path: *const c_char) -> *mut Bg3Pak {
     if path.is_null() {
         return std::ptr::null_mut();
     }
+    // SAFETY: path is checked for null and must be a valid null-terminated C string.
     let path_str = match unsafe { CStr::from_ptr(path) }.to_str() {
         Ok(s) => s,
         Err(_) => return std::ptr::null_mut(),
@@ -73,15 +81,26 @@ pub extern "C" fn bg3pak_open(path: *const c_char) -> *mut Bg3Pak {
 }
 
 /// Close and free a PAK handle opened with `bg3pak_open()`.
+///
+/// # Safety
+///
+/// `pak` must be null or a pointer returned by `bg3pak_open`. Passing any other
+/// pointer, or passing the same pointer more than once, is undefined behavior.
 #[no_mangle]
 pub unsafe extern "C" fn bg3pak_close(pak: *mut Bg3Pak) {
     if !pak.is_null() {
+        // SAFETY: caller guarantees pak was returned by bg3pak_open.
         unsafe { drop(Box::from_raw(pak)) };
     }
 }
 
 /// Returns true if the PAK contains at least one entry whose path starts with
 /// `"Localization/{language}/"` (case-insensitive, backslash-normalised).
+///
+/// # Safety
+///
+/// `pak` must be null or a valid pointer returned by `bg3pak_open`.
+/// `language` must be null or a valid null-terminated UTF-8 C string.
 #[no_mangle]
 pub unsafe extern "C" fn bg3pak_has_localization(
     pak: *const Bg3Pak,
@@ -90,11 +109,13 @@ pub unsafe extern "C" fn bg3pak_has_localization(
     if pak.is_null() || language.is_null() {
         return false;
     }
+    // SAFETY: language is checked for null and must be a valid null-terminated C string.
     let lang = match unsafe { CStr::from_ptr(language) }.to_str() {
         Ok(s) => s,
         Err(_) => return false,
     };
     let prefix = format!("localization/{}/", lang.to_ascii_lowercase());
+    // SAFETY: caller guarantees pak is a valid Bg3Pak pointer.
     let pak = unsafe { &*pak };
     pak.0.files().iter().any(|f| {
         f.name()
@@ -107,6 +128,12 @@ pub unsafe extern "C" fn bg3pak_has_localization(
 /// Call `callback(name, userdata)` for every file entry in the PAK.
 /// `name` is a null-terminated UTF-8 path (e.g. `"Localization/Russian/strings.loca"`).
 /// Do not call `bg3pak_*` functions from inside the callback.
+///
+/// # Safety
+///
+/// `pak` must be null or a valid pointer returned by `bg3pak_open`. If supplied,
+/// `callback` must be callable for the duration of this function and must not
+/// retain the temporary `name` pointer after returning.
 #[no_mangle]
 pub unsafe extern "C" fn bg3pak_for_each_file(
     pak: *const Bg3Pak,
@@ -120,9 +147,11 @@ pub unsafe extern "C" fn bg3pak_for_each_file(
         Some(f) => f,
         None => return,
     };
+    // SAFETY: caller guarantees pak is a valid Bg3Pak pointer.
     let pak = unsafe { &*pak };
     for file in pak.0.files() {
         if let Ok(cname) = CString::new(file.name()) {
+            // SAFETY: callback contract allows calling with a temporary C string pointer.
             unsafe { cb(cname.as_ptr(), userdata) };
         }
     }
@@ -130,6 +159,11 @@ pub unsafe extern "C" fn bg3pak_for_each_file(
 
 /// Read a file from the PAK by its internal path (backslash == slash, case-insensitive).
 /// Returns NULL if not found or on error. Free the result with `bg3_free_bytes()`.
+///
+/// # Safety
+///
+/// `pak` must be null or a valid pointer returned by `bg3pak_open`.
+/// `path` must be null or a valid null-terminated UTF-8 C string.
 #[no_mangle]
 pub unsafe extern "C" fn bg3pak_read_file(
     pak: *const Bg3Pak,
@@ -138,10 +172,12 @@ pub unsafe extern "C" fn bg3pak_read_file(
     if pak.is_null() || path.is_null() {
         return std::ptr::null_mut();
     }
+    // SAFETY: path is checked for null and must be a valid null-terminated C string.
     let path_str = match unsafe { CStr::from_ptr(path) }.to_str() {
         Ok(s) => s,
         Err(_) => return std::ptr::null_mut(),
     };
+    // SAFETY: caller guarantees pak is a valid Bg3Pak pointer.
     let pak = unsafe { &*pak };
     let file = pak.0.get(path_str).or_else(|| {
         let wanted = path_str.replace('\\', "/").to_ascii_lowercase();
@@ -206,11 +242,16 @@ fn json_escape(s: &str) -> Cow<'_, str> {
 /// The 4-byte big-endian length prefix matches Qt's `qCompress` format so the
 /// result can be passed directly to `qUncompress()`. Returns NULL on error or
 /// if the resource is empty. Free with `bg3_free_bytes()`.
+///
+/// # Safety
+///
+/// `data` must be null or point to `len` readable bytes for the duration of the call.
 #[no_mangle]
 pub unsafe extern "C" fn bg3loca_to_json_compressed(data: *const u8, len: usize) -> *mut Bg3Bytes {
     if data.is_null() || len == 0 {
         return std::ptr::null_mut();
     }
+    // SAFETY: caller guarantees data points to len readable bytes.
     let bytes = unsafe { std::slice::from_raw_parts(data, len) };
     let resource = match panic::catch_unwind(|| LocaUtils::load_from_bytes(bytes, LocaFormat::Loca))
     {

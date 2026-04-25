@@ -38,8 +38,8 @@ crate-type = ["rlib"]
 
 [features]
 default = []
-async  = ["tokio"]
-regex  = ["dep:regex"]
+async = ["tokio"]
+regex = ["dep:regex"]
 # Enables C-compatible FFI exports for linking into C++ projects.
 # Has no effect on the rlib build used by Rust dependents.
 ffi = []

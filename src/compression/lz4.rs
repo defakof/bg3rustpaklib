@@ -35,9 +35,11 @@ pub fn decompress_lz4(compressed: &[u8], uncompressed_size: usize) -> Result<Vec
         return Ok(result);
     }
 
-    Err(PakError::Decompression(
-        "LZ4 block decompression failed: the offset to copy is not contained in the decompressed buffer".to_string(),
-    ))
+    let message = concat!(
+        "LZ4 block decompression failed: ",
+        "the offset to copy is not contained in the decompressed buffer"
+    );
+    Err(PakError::Decompression(message.to_string()))
 }
 
 /// Decompresses BG3's chunked LZ4 format.
@@ -82,8 +84,8 @@ fn decompress_lz4_chunked(compressed: &[u8], uncompressed_size: usize) -> Result
 
         let chunk_decompressed = lz4_flex::block::decompress(chunk_data, chunk_uncompressed_size)
             .map_err(|e| {
-            PakError::Decompression(format!("LZ4 chunk decompression failed: {}", e))
-        })?;
+                PakError::Decompression(format!("LZ4 chunk decompression failed: {}", e))
+            })?;
 
         decompressed.extend_from_slice(&chunk_decompressed);
     }

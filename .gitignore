@@ -20,8 +20,6 @@ tools/lslib_probe/
 tools/lslib_bench/bin/
 tools/lslib_bench/obj/
 
-
-
 # RustRover
 .idea/
 
@@ -39,6 +37,7 @@ tools/lslib_bench/obj/
 # Test PAK files (real BG3 mod files, not for distribution)
 tests/paks/
 
-# Claude Code internal files
+# Local workspace files
 .claude/
+AGENTS.md
 plan.md

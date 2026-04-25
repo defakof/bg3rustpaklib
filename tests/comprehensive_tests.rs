@@ -122,7 +122,10 @@ fn test_error_not_a_pak_file() {
     let result = PackageHeader::read(&mut cursor);
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(err.to_string().contains("not a valid PAK file") || err.to_string().contains("no valid signature"));
+    assert!(
+        err.to_string().contains("not a valid PAK file")
+            || err.to_string().contains("no valid signature")
+    );
 }
 
 #[test]
@@ -188,7 +191,9 @@ fn test_lz4_roundtrip() {
 
     let original = b"The quick brown fox jumps over the lazy dog. AAAAAAAAAAAAAAAAAAA";
     let compressed = lz4_flex::block::compress(original);
-    let decompressed = bg3rustpaklib::compression_test_helpers::decompress_lz4(&compressed, original.len()).unwrap();
+    let decompressed =
+        bg3rustpaklib::compression_test_helpers::decompress_lz4(&compressed, original.len())
+            .unwrap();
     assert_eq!(decompressed, original);
 }
 
@@ -196,7 +201,8 @@ fn test_lz4_roundtrip() {
 fn test_zstd_roundtrip() {
     let original = b"Hello, World! This is a test of Zstd compression. Repeated: BBBBBBBBB";
     let compressed = zstd::encode_all(&original[..], 3).unwrap();
-    let decompressed = bg3rustpaklib::compression_test_helpers::decompress_zstd(&compressed).unwrap();
+    let decompressed =
+        bg3rustpaklib::compression_test_helpers::decompress_zstd(&compressed).unwrap();
     assert_eq!(decompressed, original);
 }
 
@@ -401,7 +407,12 @@ fn test_package_flags_bitor() {
 fn test_compression_method_roundtrip() {
     use bg3rustpaklib::CompressionMethod;
 
-    for method in [CompressionMethod::None, CompressionMethod::Zlib, CompressionMethod::Lz4, CompressionMethod::Zstd] {
+    for method in [
+        CompressionMethod::None,
+        CompressionMethod::Zlib,
+        CompressionMethod::Lz4,
+        CompressionMethod::Zstd,
+    ] {
         let flags = method.to_flags();
         let parsed = CompressionMethod::from_flags(flags);
         assert_eq!(parsed, method);

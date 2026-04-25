@@ -38,6 +38,7 @@ struct ArchivePart {
 impl ArchivePart {
     fn open(path: &Path) -> Result<Self> {
         let file = File::open(path)?;
+        // SAFETY: the file handle is kept alive in ArchivePart for at least as long as the mmap.
         let mmap = unsafe { Mmap::map(&file)? };
         Ok(ArchivePart { file, mmap })
     }

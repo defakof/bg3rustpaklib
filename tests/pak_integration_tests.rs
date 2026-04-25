@@ -7,9 +7,20 @@ use bg3rustpaklib::{FileFilter, Package, PackageSearch, PackageVersion};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-const ACHERON: &str = "tests/paks/new/Acheron - Clothing and Light Armor-21776-1-0-0-1-1773421378/ONYX_Acheron_203a60f0-f5d9-6643-2e3e-ca68c44e2b2f.pak";
-const ROMANCE: &str = "tests/paks/new/Even Better Romance - Straight-21826-0-2-0-1773097318/Even Better Romance - S.pak";
-const MINTHARA: &str = "tests/paks/new/Minthara Auto-KO - Full Auto-KO-21836-1-0-1-2-1774418866/Minthara_Auto-KO_Full_Auto.pak";
+const ACHERON: &str = concat!(
+    "tests/paks/new/Acheron - Clothing and Light Armor-21776-1-0-0-1-1773421378/",
+    "ONYX_Acheron_203a60f0-f5d9-6643-2e3e-ca68c44e2b2f.pak"
+);
+const ROMANCE: &str = concat!(
+    "tests/paks/new/Even Better Romance - Straight-21826-0-2-0-1773097318/",
+    "Even Better Romance - S.pak"
+);
+const MINTHARA: &str = concat!(
+    "tests/paks/new/Minthara Auto-KO - Full Auto-KO-21836-1-0-1-2-1774418866/",
+    "Minthara_Auto-KO_Full_Auto.pak"
+);
+const MINTHARA_MOD_PREFIX: &str =
+    "Mods/Minthara_Recruitment_AutoKnockout_95e17e85-53a9-e747-68eb-26f0a0e222f2";
 
 /// Returns Some(Package) if the file exists, None to skip the test.
 fn open_if_present(path: &str) -> Option<Package> {
@@ -94,7 +105,9 @@ fn test_read_meta_lsx_is_valid_xml() {
 #[test]
 fn test_read_english_xml_minthara() {
     let Some(pkg) = open_if_present(MINTHARA) else { return };
-    let file = pkg.get("Mods/Minthara_Recruitment_AutoKnockout_95e17e85-53a9-e747-68eb-26f0a0e222f2/Localization/English/english.xml").unwrap();
+    let file = pkg
+        .get(&format!("{MINTHARA_MOD_PREFIX}/Localization/English/english.xml"))
+        .unwrap();
     let data = pkg.read_file(file).unwrap();
     let text = std::str::from_utf8(&data).expect("english.xml should be valid UTF-8");
     assert!(text.contains("Minthara") || text.contains("minthara") || text.contains("contentuid"),
@@ -104,7 +117,9 @@ fn test_read_english_xml_minthara() {
 #[test]
 fn test_read_story_header_is_nonempty() {
     let Some(pkg) = open_if_present(MINTHARA) else { return };
-    let file = pkg.get("Mods/Minthara_Recruitment_AutoKnockout_95e17e85-53a9-e747-68eb-26f0a0e222f2/Story/RawFiles/story_header.div").unwrap();
+    let file = pkg
+        .get(&format!("{MINTHARA_MOD_PREFIX}/Story/RawFiles/story_header.div"))
+        .unwrap();
     let data = pkg.read_file(file).unwrap();
     assert_eq!(data.len(), 127964);
 }
@@ -112,7 +127,9 @@ fn test_read_story_header_is_nonempty() {
 #[test]
 fn test_read_logo_png_has_png_magic() {
     let Some(pkg) = open_if_present(MINTHARA) else { return };
-    let file = pkg.get("Mods/Minthara_Recruitment_AutoKnockout_95e17e85-53a9-e747-68eb-26f0a0e222f2/mod_publish_logo.png").unwrap();
+    let file = pkg
+        .get(&format!("{MINTHARA_MOD_PREFIX}/mod_publish_logo.png"))
+        .unwrap();
     let data = pkg.read_file(file).unwrap();
     assert_eq!(data.len(), 239249);
     // PNG magic: 89 50 4E 47 0D 0A 1A 0A

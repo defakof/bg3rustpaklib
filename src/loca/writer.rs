@@ -118,7 +118,7 @@ impl<W: Write> LocaXmlWriter<W> {
         for entry in &resource.entries {
             let indent = if self.indent { "\t" } else { "" };
             let encoded_text = Self::encode_xml_entities(&entry.text);
-            
+
             writeln!(
                 self.writer,
                 "{}<content contentuid=\"{}\" version=\"{}\">{}</content>",

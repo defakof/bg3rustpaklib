@@ -49,7 +49,7 @@ impl<R: Read> LocaReader<R> {
 
         // Calculate how many bytes we've read so far
         let bytes_read = HEADER_SIZE + (header.num_entries as usize * ENTRY_SIZE);
-        
+
         // Skip to texts offset if needed
         if header.texts_offset as usize > bytes_read {
             let to_skip = header.texts_offset as usize - bytes_read;
@@ -101,7 +101,11 @@ impl<R: Read> LocaReader<R> {
             self.reader.read_exact(&mut length_buf)?;
             let length = u32::from_le_bytes(length_buf);
 
-            entries.push(LocaEntry { key, version, length });
+            entries.push(LocaEntry {
+                key,
+                version,
+                length,
+            });
         }
 
         Ok(entries)
@@ -150,7 +154,7 @@ impl<R: Read> LocaXmlReader<R> {
         let mut pos = 0;
         while let Some(start) = content[pos..].find("<content ") {
             let abs_start = pos + start;
-            
+
             // Find the end of this element
             let Some(end_tag) = content[abs_start..].find("</content>") else {
                 // Try self-closing tag
@@ -162,10 +166,10 @@ impl<R: Read> LocaXmlReader<R> {
             };
 
             let element = &content[abs_start..abs_start + end_tag + 10];
-            
+
             // Parse contentuid attribute
             let contentuid = Self::extract_attribute(element, "contentuid");
-            
+
             // Parse version attribute (default to 1)
             let version = Self::extract_attribute(element, "version")
                 .and_then(|v| v.parse::<u16>().ok())
@@ -220,12 +224,12 @@ mod tests {
 
     fn create_test_loca() -> Vec<u8> {
         let mut data = Vec::new();
-        
+
         // Header
         data.extend_from_slice(&LOCA_SIGNATURE.to_le_bytes()); // Signature
         data.extend_from_slice(&1u32.to_le_bytes()); // NumEntries
         data.extend_from_slice(&82u32.to_le_bytes()); // TextsOffset (12 + 70 = 82)
-        
+
         // Entry
         let mut key = [0u8; 64];
         let key_str = b"test_key";
@@ -233,10 +237,10 @@ mod tests {
         data.extend_from_slice(&key);
         data.extend_from_slice(&1u16.to_le_bytes()); // Version
         data.extend_from_slice(&12u32.to_le_bytes()); // Length (including null)
-        
+
         // Text data
         data.extend_from_slice(b"Hello World\0");
-        
+
         data
     }
 
@@ -245,7 +249,7 @@ mod tests {
         let data = create_test_loca();
         let cursor = Cursor::new(data);
         let mut reader = LocaReader::new(cursor);
-        
+
         let resource = reader.read().unwrap();
         assert_eq!(resource.len(), 1);
         assert_eq!(resource.entries[0].key, "test_key");
@@ -263,7 +267,7 @@ mod tests {
 
         let cursor = Cursor::new(xml.as_bytes());
         let mut reader = LocaXmlReader::new(cursor);
-        
+
         let resource = reader.read().unwrap();
         assert_eq!(resource.len(), 2);
         assert_eq!(resource.entries[0].key, "key1");
@@ -276,10 +280,10 @@ mod tests {
     fn test_invalid_signature() {
         let mut data = create_test_loca();
         data[0] = 0xFF; // Corrupt signature
-        
+
         let cursor = Cursor::new(data);
         let mut reader = LocaReader::new(cursor);
-        
+
         let result = reader.read();
         assert!(matches!(result, Err(LocaError::InvalidSignature { .. })));
     }
