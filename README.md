@@ -17,6 +17,7 @@ This library provides functionality for working with Larian Studios' PAK (LSPK) 
 - **Compression support** - LZ4 and Zstd decompression
 - **Solid archives** - Support for solid archive handling
 - **Async API** - Optional async support via `async` feature
+- **C ABI (`ffi` feature)** - Optional C-compatible exports for embedding in C/C++ (build as `staticlib` when you need a `.lib` / `.a`)
 
 ## Usage
 

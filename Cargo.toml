@@ -1,6 +1,6 @@
 [package]
 name = "bg3rustpaklib"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 authors = ["bg3rustpaklib contributors"]
 description = "A Rust library for reading and extracting Baldur's Gate 3 PAK files"
@@ -10,7 +10,7 @@ keywords = ["baldurs-gate-3", "bg3", "pak", "lspk", "modding"]
 categories = ["parsing", "game-development"]
 
 [package.metadata.docs.rs]
-features = ["async", "regex"]
+features = ["async", "regex", "ffi"]
 
 [dependencies]
 thiserror = "2"
