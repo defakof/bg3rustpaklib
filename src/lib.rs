@@ -83,6 +83,9 @@ mod search;
 #[cfg(feature = "async")]
 mod async_support;
 
+#[cfg(feature = "ffi")]
+pub mod ffi;
+
 // Re-export main types
 pub use compression::CompressionMethod;
 pub use error::{PakError, Result};

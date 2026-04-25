@@ -31,10 +31,18 @@ version = "1"
 features = ["fs", "io-util", "sync", "rt"]
 optional = true
 
+[lib]
+# rlib for normal Rust consumers (no bloat).
+# For C++ FFI: cargo rustc --release --features ffi --crate-type=staticlib
+crate-type = ["rlib"]
+
 [features]
 default = []
-async = ["tokio"]
-regex = ["dep:regex"]
+async  = ["tokio"]
+regex  = ["dep:regex"]
+# Enables C-compatible FFI exports for linking into C++ projects.
+# Has no effect on the rlib build used by Rust dependents.
+ffi = []
 
 [dev-dependencies]
 tempfile = "3"
